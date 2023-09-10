@@ -1,35 +1,170 @@
-import { createSignal } from 'solid-js'
-import solidLogo from './assets/solid.svg'
-import viteLogo from '/vite.svg'
+import * as solid from 'solid-js'
 import './App.css'
 
-function App() {
-  const [count, setCount] = createSignal(0)
+export type Atom<T> = solid.Accessor<T> & {
+    get value(): T
+    peak(): T
+    set(value: T): T
+    update: solid.Setter<T>
+    trigger(): void
+}
 
-  return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} class="logo" alt="Vite logo" />
-        </a>
-        <a href="https://solidjs.com" target="_blank">
-          <img src={solidLogo} class="logo solid" alt="Solid logo" />
-        </a>
-      </div>
-      <h1>Vite + Solid</h1>
-      <div class="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count()}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p class="read-the-docs">
-        Click on the Vite and Solid logos to learn more
-      </p>
-    </>
-  )
+export function atom<T>(initialValue: T, options?: solid.SignalOptions<T>): Atom<T>
+export function atom<T = undefined>(
+    initialValue?: undefined,
+    options?: solid.SignalOptions<T | undefined>,
+): Atom<T | undefined>
+export function atom<T>(initialValue: T, options?: solid.SignalOptions<T>): Atom<T> {
+    let mutating = false
+
+    const equals = (options?.equals ?? solid.equalFn) || (() => false)
+    const [atom, setter] = solid.createSignal(initialValue, {
+        ...options,
+        equals: (a, b) => (mutating ? (mutating = false) : equals(a, b)),
+    }) as [Atom<T>, solid.Setter<T>]
+
+    atom.update = setter
+    atom.trigger = () => {
+        mutating = true
+        setter(p => p)
+    }
+    atom.set = value => setter(() => value)
+    atom.peak = () => solid.untrack(atom)
+
+    Object.defineProperty(atom, 'value', { get: atom })
+
+    return atom
+}
+
+function App() {
+    const [count, setCount] = solid.createSignal(0)
+
+    //   const local_connection = new RTCPeerConnection()
+
+    //   const channel = local_connection.createDataChannel("sendChannel")
+
+    //   function handleEvent(event: Event) {
+    //     console.log({ event })
+    //   }
+
+    //   channel.onopen = handleEvent
+    //   channel.onclose = handleEvent
+
+    //   const remote_connection = new RTCPeerConnection()
+    //   remote_connection.ondatachannel = event => {
+    //     console.log("data channel", { event })
+    //   }
+
+    //   function handleError(reason: unknown) {
+    //     console.log({ reason })
+    //   }
+
+    //   local_connection.onicecandidate = e =>
+    //     !e.candidate || remote_connection.addIceCandidate(e.candidate).catch(handleError)
+
+    //   remote_connection.onicecandidate = e =>
+    //     !e.candidate || local_connection.addIceCandidate(e.candidate).catch(handleError)
+
+    //   local_connection
+    //     .createOffer()
+    //     .then(offer => local_connection.setLocalDescription(offer))
+    //     .then(
+    //       () =>
+    //         local_connection.localDescription &&
+    //         remote_connection.setRemoteDescription(local_connection.localDescription)
+    //     )
+    //     .then(() => remote_connection.createAnswer())
+    //     .then(answer => remote_connection.setLocalDescription(answer))
+    //     .then(
+    //       () =>
+    //         remote_connection.localDescription &&
+    //         local_connection.setRemoteDescription(remote_connection.localDescription)
+    //     )
+    //     .catch(handleError)
+
+    const peer_type = atom<'a' | 'b'>()
+
+    solid.createEffect(() => {
+        const type = peer_type()
+        if (!type) return
+
+        if (type === 'a') {
+            const connection = new RTCPeerConnection()
+
+            const channel = connection.createDataChannel('send_channel')
+
+            function handleEvent(event: Event) {
+                console.log({ event })
+            }
+
+            function handleError(reason: unknown) {
+                console.log({ reason })
+            }
+
+            channel.onopen = handleEvent
+            channel.onclose = handleEvent
+
+            connection.onicecandidate = e => {
+                !e.candidate || connection.addIceCandidate(e.candidate).catch(handleError)
+                console.log({ e })
+            }
+
+            solid.onCleanup(() => {
+                connection.close()
+            })
+        } else if (type === 'b') {
+            const connection = new RTCPeerConnection()
+
+            connection.ondatachannel = event => {
+                console.log('data channel', { event })
+            }
+
+            function handleError(reason: unknown) {
+                console.log({ reason })
+            }
+
+            connection.onicecandidate = e => {
+                !e.candidate || connection.addIceCandidate(e.candidate).catch(handleError)
+                console.log({ e })
+            }
+
+            connection
+                .createOffer()
+                .then(offer => connection.setLocalDescription(offer))
+                .then(
+                    () =>
+                        connection.localDescription &&
+                        connection.setRemoteDescription(connection.localDescription),
+                )
+                .then(() => connection.createAnswer())
+                .catch(handleError)
+
+            solid.onCleanup(() => {
+                connection.close()
+            })
+        }
+    })
+
+    return (
+        <>
+            <button
+                onClick={() => peer_type.set('a')}
+                style={{
+                    background: peer_type() === 'a' ? 'red' : '',
+                }}
+            >
+                A
+            </button>
+            <button
+                onClick={() => peer_type.set('b')}
+                style={{
+                    background: peer_type() === 'b' ? 'red' : '',
+                }}
+            >
+                B
+            </button>
+        </>
+    )
 }
 
 export default App
