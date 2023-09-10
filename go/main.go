@@ -57,37 +57,57 @@ type RTCDescription struct {
 
 var rtc_connections []*websocket.Conn
 var rtc_description *RTCDescription
+var rtc_pending bool
 
+/*
+connect all clients to each other
+to the same room
+
+room (rtc description) is created by the first client
+and then sent to all other clients
+*/
 func rtcConnection(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
-
 	if err != nil {
 		fmt.Println("err", err)
 		return
 	}
 
-	if rtc_description != nil {
-		conn.WriteJSON(rtc_description)
-		conn.Close()
-	} else {
+	if rtc_pending {
+		fmt.Println("Add conn", conn)
 		rtc_connections = append(rtc_connections, conn)
-
+		return
 	}
 
-	defer conn.Close()
-	defer fmt.Println("Connection with", conn.RemoteAddr().String(), "closed")
+	if rtc_description != nil {
+		fmt.Println("Send desc", rtc_description)
+		conn.WriteJSON(rtc_description)
+		conn.Close()
+		return
+	}
 
-	for {
-		msg_type, msg, err := conn.ReadMessage()
-		if err != nil {
-			return
-		}
+	fmt.Println("Set pending")
 
-		fmt.Printf("%s sent: %s\n", conn.RemoteAddr().String(), string(msg))
+	rtc_pending = true
+	rtc_description = &RTCDescription{}
 
-		if err = conn.WriteMessage(msg_type, msg); err != nil {
-			return
-		}
+	defer func() {
+		rtc_pending = false
+		rtc_description = nil
+		rtc_connections = nil
+	}()
+
+	err = conn.ReadJSON(rtc_description)
+	if err != nil {
+		fmt.Println("err", err)
+		return
+	}
+
+	fmt.Println("RTC description", rtc_description)
+
+	for _, c := range rtc_connections {
+		c.WriteJSON(rtc_description)
+		c.Close()
 	}
 }
 

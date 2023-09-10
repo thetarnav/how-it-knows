@@ -46,13 +46,14 @@ import { atom } from './atom'
 //     .catch(handleError)
 
 function App() {
-    const ws = new WebSocket('ws://localhost:8080/echo')
+    const ws = new WebSocket('ws://localhost:8080/rtc')
     const rtc_conn = new RTCPeerConnection()
 
     const ws_state$ = atom<'connecting' | 'open' | 'closed'>('connecting')
 
     ws.onopen = () => {
-        ws.send('hello')
+        console.log('open')
+        ws_state$.set('open')
     }
 
     ws.onmessage = event => {
