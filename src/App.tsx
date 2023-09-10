@@ -1,91 +1,77 @@
 import * as solid from 'solid-js'
 import './App.css'
+import { atom } from './atom'
 
-export type Atom<T> = solid.Accessor<T> & {
-    get value(): T
-    peak(): T
-    set(value: T): T
-    update: solid.Setter<T>
-    trigger(): void
-}
+//   const local_connection = new RTCPeerConnection()
 
-export function atom<T>(initialValue: T, options?: solid.SignalOptions<T>): Atom<T>
-export function atom<T = undefined>(
-    initialValue?: undefined,
-    options?: solid.SignalOptions<T | undefined>,
-): Atom<T | undefined>
-export function atom<T>(initialValue: T, options?: solid.SignalOptions<T>): Atom<T> {
-    let mutating = false
+//   const channel = local_connection.createDataChannel("sendChannel")
 
-    const equals = (options?.equals ?? solid.equalFn) || (() => false)
-    const [atom, setter] = solid.createSignal(initialValue, {
-        ...options,
-        equals: (a, b) => (mutating ? (mutating = false) : equals(a, b)),
-    }) as [Atom<T>, solid.Setter<T>]
+//   function handleEvent(event: Event) {
+//     console.log({ event })
+//   }
 
-    atom.update = setter
-    atom.trigger = () => {
-        mutating = true
-        setter(p => p)
-    }
-    atom.set = value => setter(() => value)
-    atom.peak = () => solid.untrack(atom)
+//   channel.onopen = handleEvent
+//   channel.onclose = handleEvent
 
-    Object.defineProperty(atom, 'value', { get: atom })
+//   const remote_connection = new RTCPeerConnection()
+//   remote_connection.ondatachannel = event => {
+//     console.log("data channel", { event })
+//   }
 
-    return atom
-}
+//   function handleError(reason: unknown) {
+//     console.log({ reason })
+//   }
+
+//   local_connection.onicecandidate = e =>
+//     !e.candidate || remote_connection.addIceCandidate(e.candidate).catch(handleError)
+
+//   remote_connection.onicecandidate = e =>
+//     !e.candidate || local_connection.addIceCandidate(e.candidate).catch(handleError)
+
+//   local_connection
+//     .createOffer()
+//     .then(offer => local_connection.setLocalDescription(offer))
+//     .then(
+//       () =>
+//         local_connection.localDescription &&
+//         remote_connection.setRemoteDescription(local_connection.localDescription)
+//     )
+//     .then(() => remote_connection.createAnswer())
+//     .then(answer => remote_connection.setLocalDescription(answer))
+//     .then(
+//       () =>
+//         remote_connection.localDescription &&
+//         local_connection.setRemoteDescription(remote_connection.localDescription)
+//     )
+//     .catch(handleError)
 
 function App() {
-    const [count, setCount] = solid.createSignal(0)
+    const ws = new WebSocket('ws://localhost:8080/echo')
+    const rtc_conn = new RTCPeerConnection()
 
-    //   const local_connection = new RTCPeerConnection()
+    const ws_state$ = atom<'connecting' | 'open' | 'closed'>('connecting')
 
-    //   const channel = local_connection.createDataChannel("sendChannel")
+    ws.onopen = () => {
+        ws.send('hello')
+    }
 
-    //   function handleEvent(event: Event) {
-    //     console.log({ event })
-    //   }
+    ws.onmessage = event => {
+        console.log({ event })
+    }
 
-    //   channel.onopen = handleEvent
-    //   channel.onclose = handleEvent
+    ws.onerror = event => {
+        console.log({ event })
+    }
 
-    //   const remote_connection = new RTCPeerConnection()
-    //   remote_connection.ondatachannel = event => {
-    //     console.log("data channel", { event })
-    //   }
+    ws.onclose = event => {
+        console.log({ event })
+        ws_state$.set('closed')
+    }
 
-    //   function handleError(reason: unknown) {
-    //     console.log({ reason })
-    //   }
-
-    //   local_connection.onicecandidate = e =>
-    //     !e.candidate || remote_connection.addIceCandidate(e.candidate).catch(handleError)
-
-    //   remote_connection.onicecandidate = e =>
-    //     !e.candidate || local_connection.addIceCandidate(e.candidate).catch(handleError)
-
-    //   local_connection
-    //     .createOffer()
-    //     .then(offer => local_connection.setLocalDescription(offer))
-    //     .then(
-    //       () =>
-    //         local_connection.localDescription &&
-    //         remote_connection.setRemoteDescription(local_connection.localDescription)
-    //     )
-    //     .then(() => remote_connection.createAnswer())
-    //     .then(answer => remote_connection.setLocalDescription(answer))
-    //     .then(
-    //       () =>
-    //         remote_connection.localDescription &&
-    //         local_connection.setRemoteDescription(remote_connection.localDescription)
-    //     )
-    //     .catch(handleError)
-
-    const peer_type = atom<'a' | 'b'>()
+    const peer_type$ = atom<'a' | 'b'>()
 
     solid.createEffect(() => {
-        const type = peer_type()
+        const type = peer_type$()
         if (!type) return
 
         if (type === 'a') {
@@ -147,18 +133,19 @@ function App() {
 
     return (
         <>
+            <div>{ws_state$()}</div>
             <button
-                onClick={() => peer_type.set('a')}
+                onClick={() => peer_type$.set('a')}
                 style={{
-                    background: peer_type() === 'a' ? 'red' : '',
+                    background: peer_type$() === 'a' ? 'red' : '',
                 }}
             >
                 A
             </button>
             <button
-                onClick={() => peer_type.set('b')}
+                onClick={() => peer_type$.set('b')}
                 style={{
-                    background: peer_type() === 'b' ? 'red' : '',
+                    background: peer_type$() === 'b' ? 'red' : '',
                 }}
             >
                 B
