@@ -1,5 +1,7 @@
 import * as solid from 'solid-js'
 
+export * from 'solid-js'
+
 export type Atom<T> = solid.Accessor<T> & {
     get value(): T
     peak(): T
@@ -33,4 +35,32 @@ export function atom<T>(initialValue: T, options?: solid.SignalOptions<T>): Atom
     Object.defineProperty(atom, 'value', { get: atom })
 
     return atom
+}
+
+export const resource: {
+    <T, R = unknown>(
+        fetcher: solid.ResourceFetcher<true, T, R>,
+        options: solid.InitializedResourceOptions<solid.NoInfer<T>, true>,
+    ): solid.InitializedResource<T> & solid.ResourceActions<T, R>
+
+    <T, R = unknown>(
+        fetcher: solid.ResourceFetcher<true, T, R>,
+        options?: solid.ResourceOptions<solid.NoInfer<T>, true>,
+    ): solid.Resource<T> & solid.ResourceActions<T | undefined, R>
+
+    <T, S, R = unknown>(
+        source: solid.ResourceSource<S>,
+        fetcher: solid.ResourceFetcher<S, T, R>,
+        options: solid.InitializedResourceOptions<solid.NoInfer<T>, S>,
+    ): solid.InitializedResource<T> & solid.ResourceActions<T, R>
+
+    <T, S, R = unknown>(
+        source: solid.ResourceSource<S>,
+        fetcher: solid.ResourceFetcher<S, T, R>,
+        options?: solid.ResourceOptions<solid.NoInfer<T>, S>,
+    ): solid.Resource<T> & solid.ResourceActions<T | undefined, R>
+} = (...args: [any]) => {
+    const [data, actions] = solid.createResource(...args)
+    Object.assign(data, actions)
+    return data as any
 }

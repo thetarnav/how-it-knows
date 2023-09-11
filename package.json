@@ -12,6 +12,7 @@
     "solid-js": "^1.7.11"
   },
   "devDependencies": {
+    "@types/node": "^20.6.0",
     "prettier": "^3.0.3",
     "prettier-plugin-organize-imports": "^3.2.3",
     "typescript": "^5.2.2",
