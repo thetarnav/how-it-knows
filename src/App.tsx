@@ -1,67 +1,11 @@
 import './App.css'
-import * as solid from './atom'
-
-const a_conn = new RTCPeerConnection()
-
-const channel = a_conn.createDataChannel('cool_channel')
-
-function handleEvent(event: Event) {
-    console.log({event})
-}
-
-channel.onopen = handleEvent
-channel.onclose = handleEvent
-
-const b_conn = new RTCPeerConnection()
-
-function handleError(reason: unknown) {
-    console.log({reason})
-}
-
-a_conn
-    .createOffer()
-    .then(offer => {
-        console.log('a made offer, setting local description')
-        return a_conn.setLocalDescription(offer)
-    })
-    .then(() => {
-        console.log('b set remote description')
-        return a_conn.localDescription && b_conn.setRemoteDescription(a_conn.localDescription)
-    })
-    .then(() => b_conn.createAnswer())
-    .then(answer => {
-        console.log('b made answer, setting local description')
-        return b_conn.setLocalDescription(answer)
-    })
-    .then(() => {
-        console.log('a set remote description')
-        return b_conn.localDescription && a_conn.setRemoteDescription(b_conn.localDescription)
-    })
-    .catch(handleError)
-
-b_conn.ondatachannel = event => {
-    console.log('b got data channel', {event})
-}
-a_conn.onicecandidate = e => {
-    if (!e.candidate) return
-    console.log('a_conn got ice candidate')
-    b_conn
-        .addIceCandidate(e.candidate)
-        .then(() => console.log('b_conn added ice candidate'))
-        .catch(handleError)
-}
-
-b_conn.onicecandidate = e => {
-    if (!e.candidate) return
-    console.log('b_conn got ice candidate')
-    a_conn.addIceCandidate(e.candidate).catch(handleError)
-}
+import * as solid from './atom.ts'
 
 const toError = (e: unknown): Error =>
     e instanceof Error ? e : new Error('unknown error ' + String(e))
 
-const arrayMapNonNullable = <T, U>(array: T[], fn: (item: T) => U): (U & {})[] => {
-    const result: (U & {})[] = Array(array.length)
+const arrayMapNonNullable = <T, U>(array: T[], fn: (item: T) => U): NonNullable<U>[] => {
+    const result: NonNullable<U>[] = Array(array.length)
     let i = 0
     for (const item of array) {
         const mapped = fn(item)
@@ -111,29 +55,115 @@ interface RTCState {
     channels: RTCDataChannel[]
 }
 
-function handleMessage(state: RTCState, event: MessageEvent): void {
-    const data = JSON.parse(event.data)
-    if (data.type === 'offer') {
-        state.connection.setRemoteDescription(data)
-        state.connection
-            .createAnswer()
-            .then(answer => state.connection.setLocalDescription(answer))
-            .then(() => {
-                if (state.connection.localDescription) {
-                    const message = JSON.stringify(state.connection.localDescription)
-                    state.channels.forEach(channel => channel.send(message))
-                }
-            })
-    } else if (data.type === 'answer') {
-        state.connection.setRemoteDescription(data)
-    } else if (data.type === 'candidate') {
-        state.connection.addIceCandidate(data)
+interface BaseMessage {
+    type: string
+}
+
+/**
+ * Initiate a peer connection.
+ * This will create an offer and send it to the server.
+ */
+interface InitMessage extends BaseMessage {
+    type: 'init'
+}
+
+/**
+ * You got an offer from a peer.
+ * Set the remote description, create an answer, and send it back to the peer.
+ */
+interface OfferMessage extends BaseMessage {
+    type: 'offer'
+    sdp: string
+}
+
+/**
+ * You got an offer answer from a peer.
+ * Set the remote description.
+ */
+interface AnswerMessage extends BaseMessage {
+    type: 'answer'
+    sdp: string
+}
+
+/**
+ * You got an ice candidate from a peer.
+ * Add the ice candidate.
+ */
+interface CandidateMessage extends BaseMessage {
+    type: 'candidate'
+    candidate: RTCIceCandidateInit
+}
+
+type Message = InitMessage | OfferMessage | AnswerMessage | CandidateMessage
+
+function toMessage(data: string): Message | undefined {
+    const message = JSON.parse(data)
+    if (typeof message !== 'object' || message === null) return
+    switch (message.type) {
+        case 'init':
+            return {type: 'init'}
+        case 'offer':
+        case 'answer':
+            return {
+                type: message.type,
+                sdp: message.sdp,
+            }
+        case 'candidate':
+            return {
+                type: 'candidate',
+                candidate: message.candidate,
+            }
+    }
+    return
+}
+
+function handleMessage(state: RTCState, message: Message): void {
+    switch (message.type) {
+        case 'init': {
+            void state.connection
+                .createOffer()
+                .then(offer => state.connection.setLocalDescription(offer))
+                .then(() => {
+                    if (state.connection.localDescription) {
+                        const response = JSON.stringify(state.connection.localDescription)
+                        state.channels.forEach(channel => channel.send(response))
+                    }
+                })
+
+            break
+        }
+        case 'offer': {
+            void state.connection.setRemoteDescription(message)
+
+            void state.connection
+                .createAnswer()
+                .then(answer => state.connection.setLocalDescription(answer))
+                .then(() => {
+                    if (state.connection.localDescription) {
+                        const response = JSON.stringify(state.connection.localDescription)
+                        state.channels.forEach(channel => channel.send(response))
+                    }
+                })
+
+            break
+        }
+        case 'answer': {
+            void state.connection.setRemoteDescription(message)
+
+            break
+        }
+        case 'candidate': {
+            void state.connection.addIceCandidate(message.candidate)
+
+            break
+        }
     }
 }
 
 function App() {
     const stun_urls$ = solid.resource(async () => {
         const result = await fetchStunUrls()
+        // eslint-disable-next-line functional/no-throw-statements
         if (result instanceof Error) throw result
         return result
     })
@@ -141,9 +171,9 @@ function App() {
     return (
         <solid.Suspense>
             <solid.Show when={stun_urls$()}>
-                {stun_urls$ => {
+                {stunUrls => {
                     const rtc_conn = new RTCPeerConnection({
-                        iceServers: [{urls: stun_urls$()}],
+                        iceServers: [{urls: stunUrls()}],
                     })
 
                     const ws = new WebSocket('ws://localhost:8080/rtc')
@@ -159,7 +189,9 @@ function App() {
                     }
 
                     ws.onmessage = event => {
-                        handleMessage(rtc_state$(), event)
+                        const message = toMessage(event.data)
+                        if (!message) return
+                        handleMessage(rtc_state$(), message)
                     }
 
                     ws.onerror = event => {
@@ -182,11 +214,11 @@ function App() {
 
                             const channel = connection.createDataChannel('send_channel')
 
-                            function handleEvent(event: Event) {
+                            function handleEvent(event: Event): void {
                                 console.log({event})
                             }
 
-                            function handleError(reason: unknown) {
+                            function handleError(reason: unknown): void {
                                 console.log({reason})
                             }
 
@@ -199,7 +231,7 @@ function App() {
                                 console.log({e})
                             }
 
-                            solid.onCleanup(() => {
+                            void solid.onCleanup(() => {
                                 connection.close()
                             })
                         } else if (type === 'b') {
@@ -219,7 +251,7 @@ function App() {
                                 console.log({e})
                             }
 
-                            connection
+                            void connection
                                 .createOffer()
                                 .then(offer => connection.setLocalDescription(offer))
                                 .then(
@@ -232,7 +264,7 @@ function App() {
                                 .then(() => connection.createAnswer())
                                 .catch(handleError)
 
-                            solid.onCleanup(() => {
+                            void solid.onCleanup(() => {
                                 connection.close()
                             })
                         }
