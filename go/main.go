@@ -55,9 +55,26 @@ type RTCDescription struct {
 	Sdp  string `json:"sdp"`
 }
 
-var rtc_connections []*websocket.Conn
-var rtc_description *RTCDescription
-var rtc_pending bool
+type RTCIceCandidate struct {
+	Candidate     string `json:"candidate"`
+	SdpMid        string `json:"sdpMid"`
+	SdpMLineIndex int    `json:"sdpMLineIndex"`
+}
+
+type Message struct {
+	Type string      `json:"type"`
+	Data interface{} `json:"data"`
+	Id   int64       `json:"id"`
+}
+
+type PeerConnection struct {
+	Id int64
+	Ws *websocket.Conn
+}
+
+var lastId int64 = 0
+
+var peerConnections []*PeerConnection
 
 /*
 connect all clients to each other
@@ -73,41 +90,64 @@ func rtcConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rtc_pending {
-		fmt.Println("Add conn", conn)
-		rtc_connections = append(rtc_connections, conn)
-		return
+	defer conn.Close()
+
+	/*
+		New peer connection!
+	*/
+	fmt.Println("New peer connection", len(peerConnections)+1)
+
+	id := lastId + 1
+	lastId = id
+
+	peer := &PeerConnection{Id: id, Ws: conn}
+
+	/*
+		Send all peers to the new peer
+	*/
+
+	for _, p := range peerConnections {
+		peer.Ws.WriteJSON(Message{
+			Type: "init",
+			Id:   p.Id,
+		})
 	}
 
-	if rtc_description != nil {
-		fmt.Println("Send desc", rtc_description)
-		conn.WriteJSON(rtc_description)
-		conn.Close()
-		return
-	}
-
-	fmt.Println("Set pending")
-
-	rtc_pending = true
-	rtc_description = &RTCDescription{}
-
+	peerConnections = append(peerConnections, peer)
 	defer func() {
-		rtc_pending = false
-		rtc_description = nil
-		rtc_connections = nil
+		for i, p := range peerConnections {
+			if p.Id == id {
+				peerConnections = append(peerConnections[:i], peerConnections[i+1:]...)
+				break
+			}
+		}
 	}()
 
-	err = conn.ReadJSON(rtc_description)
-	if err != nil {
-		fmt.Println("err", err)
-		return
-	}
+	/*
+	   Send messages between peers
+	*/
 
-	fmt.Println("RTC description", rtc_description)
+	for {
+		var msg Message
+		err := conn.ReadJSON(&msg)
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
 
-	for _, c := range rtc_connections {
-		c.WriteJSON(rtc_description)
-		c.Close()
+		fmt.Println("msg from", id, "to", msg.Id, "type", msg.Type)
+
+		for _, p := range peerConnections {
+			if p.Id != msg.Id {
+				continue
+			}
+
+			p.Ws.WriteJSON(Message{
+				Type: msg.Type,
+				Data: msg.Data,
+				Id:   id,
+			})
+		}
 	}
 }
 

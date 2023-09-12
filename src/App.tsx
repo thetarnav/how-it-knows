@@ -49,14 +49,20 @@ so one peer will create an offer, and send it to ws
 
 */
 
+/*
+TODO multiple connections
+*/
 interface RTCState {
     ws_state: 'connecting' | 'open' | 'closed'
     connection: RTCPeerConnection
-    channels: RTCDataChannel[]
+    channels: RTCDataChannel | null
+    peer_id: number | null
 }
 
 interface BaseMessage {
     type: string
+    data: unknown
+    id: number
 }
 
 /**
@@ -65,6 +71,7 @@ interface BaseMessage {
  */
 interface InitMessage extends BaseMessage {
     type: 'init'
+    data: undefined
 }
 
 /**
@@ -73,7 +80,7 @@ interface InitMessage extends BaseMessage {
  */
 interface OfferMessage extends BaseMessage {
     type: 'offer'
-    sdp: string
+    data: string
 }
 
 /**
@@ -82,7 +89,7 @@ interface OfferMessage extends BaseMessage {
  */
 interface AnswerMessage extends BaseMessage {
     type: 'answer'
-    sdp: string
+    data: string
 }
 
 /**
@@ -91,69 +98,135 @@ interface AnswerMessage extends BaseMessage {
  */
 interface CandidateMessage extends BaseMessage {
     type: 'candidate'
-    candidate: RTCIceCandidateInit
+    data: RTCIceCandidateInit
 }
 
 type Message = InitMessage | OfferMessage | AnswerMessage | CandidateMessage
 
-function toMessage(data: string): Message | undefined {
-    const message = JSON.parse(data)
-    if (typeof message !== 'object' || message === null) return
-    switch (message.type) {
+/*
+? What happens if it fails?
+? What happens if the connection is closed?
+? What happens if the connection is closed before the offer is sent?
+*/
+
+function messageFromString(string: string): Message | undefined {
+    const data = JSON.parse(string)
+    if (
+        typeof data !== 'object' ||
+        data === null ||
+        typeof data.type !== 'string' ||
+        typeof data.id !== 'number'
+    )
+        return
+
+    switch (data.type) {
         case 'init':
-            return {type: 'init'}
+            return {type: 'init', id: data.id, data: undefined}
         case 'offer':
-        case 'answer':
+        case 'answer': {
+            if (typeof data.data !== 'string') return
             return {
-                type: message.type,
-                sdp: message.sdp,
+                type: data.type,
+                data: data.data,
+                id: data.id,
             }
-        case 'candidate':
+        }
+        case 'candidate': {
+            if (typeof data.data !== 'object' || data.data === null) return
             return {
                 type: 'candidate',
-                candidate: message.candidate,
+                data: data.data,
+                id: data.id,
             }
+        }
     }
     return
 }
 
-function handleMessage(state: RTCState, message: Message): void {
+type SendResponse = (response: Message) => void
+
+function handleMessage(state: RTCState, message: Message, sendResponse: SendResponse): void {
+    const {connection} = state
+
+    console.log('message', message)
+
     switch (message.type) {
         case 'init': {
-            void state.connection
+            /*
+                Data channel
+            */
+            const channel = connection.createDataChannel('data')
+            channel.onopen = () => {
+                console.log('channel open')
+            }
+            channel.onclose = () => {
+                console.log('channel close')
+            }
+            channel.onmessage = event => {
+                console.log('channel message', event.data)
+            }
+            channel.onerror = event => {
+                console.log('channel error', event)
+            }
+
+            state.channels = channel
+            state.peer_id = message.id
+
+            /*
+                Offer
+            */
+            void connection
                 .createOffer()
-                .then(offer => state.connection.setLocalDescription(offer))
+                .then(offer => connection.setLocalDescription(offer))
                 .then(() => {
-                    if (state.connection.localDescription) {
-                        const response = JSON.stringify(state.connection.localDescription)
-                        state.channels.forEach(channel => channel.send(response))
+                    if (!connection.localDescription) return
+
+                    const sdp = connection.localDescription.sdp
+                    const response: Message = {
+                        type: 'offer',
+                        data: sdp,
+                        id: message.id,
                     }
+                    sendResponse(response)
                 })
 
             break
         }
         case 'offer': {
-            void state.connection.setRemoteDescription(message)
+            state.peer_id = message.id
 
-            void state.connection
+            void connection.setRemoteDescription({
+                type: 'offer',
+                sdp: message.data,
+            })
+
+            void connection
                 .createAnswer()
-                .then(answer => state.connection.setLocalDescription(answer))
+                .then(answer => connection.setLocalDescription(answer))
                 .then(() => {
-                    if (state.connection.localDescription) {
-                        const response = JSON.stringify(state.connection.localDescription)
-                        state.channels.forEach(channel => channel.send(response))
+                    if (!connection.localDescription) return
+
+                    const sdp = connection.localDescription.sdp
+                    const response: Message = {
+                        type: 'answer',
+                        data: sdp,
+                        id: message.id,
                     }
+                    sendResponse(response)
                 })
 
             break
         }
         case 'answer': {
-            void state.connection.setRemoteDescription(message)
+            void connection.setRemoteDescription({
+                type: 'answer',
+                sdp: message.data,
+            })
 
             break
         }
         case 'candidate': {
-            void state.connection.addIceCandidate(message.candidate)
+            void connection.addIceCandidate(message.data)
 
             break
         }
@@ -180,8 +253,18 @@ function App() {
                     const rtc_state$ = solid.atom<RTCState>({
                         ws_state: 'connecting',
                         connection: rtc_conn,
-                        channels: [],
+                        channels: null,
+                        peer_id: null,
                     })
+
+                    void solid.onCleanup(() => {
+                        rtc_conn.close()
+                        ws.close()
+                    })
+
+                    const sendResponse: SendResponse = response => {
+                        ws.send(JSON.stringify(response))
+                    }
 
                     ws.onopen = () => {
                         rtc_state$().ws_state = 'open'
@@ -189,9 +272,9 @@ function App() {
                     }
 
                     ws.onmessage = event => {
-                        const message = toMessage(event.data)
+                        const message = messageFromString(event.data)
                         if (!message) return
-                        handleMessage(rtc_state$(), message)
+                        handleMessage(rtc_state$(), message, sendResponse)
                     }
 
                     ws.onerror = event => {
@@ -203,72 +286,33 @@ function App() {
                         rtc_state$.trigger()
                     }
 
-                    const peer_type$ = solid.atom<'a' | 'b'>()
+                    rtc_conn.onicecandidate = event => {
+                        if (!event.candidate) return
 
-                    solid.createEffect(() => {
-                        const type = peer_type$()
-                        if (!type) return
+                        console.log('ice candidate', event.candidate.address)
 
-                        if (type === 'a') {
-                            const connection = new RTCPeerConnection()
+                        const peer_id = rtc_state$().peer_id
 
-                            const channel = connection.createDataChannel('send_channel')
-
-                            function handleEvent(event: Event): void {
-                                console.log({event})
-                            }
-
-                            function handleError(reason: unknown): void {
-                                console.log({reason})
-                            }
-
-                            channel.onopen = handleEvent
-                            channel.onclose = handleEvent
-
-                            connection.onicecandidate = e => {
-                                !e.candidate ||
-                                    connection.addIceCandidate(e.candidate).catch(handleError)
-                                console.log({e})
-                            }
-
-                            void solid.onCleanup(() => {
-                                connection.close()
-                            })
-                        } else if (type === 'b') {
-                            const connection = new RTCPeerConnection()
-
-                            connection.ondatachannel = event => {
-                                console.log('data channel', {event})
-                            }
-
-                            function handleError(reason: unknown) {
-                                console.log({reason})
-                            }
-
-                            connection.onicecandidate = e => {
-                                !e.candidate ||
-                                    connection.addIceCandidate(e.candidate).catch(handleError)
-                                console.log({e})
-                            }
-
-                            void connection
-                                .createOffer()
-                                .then(offer => connection.setLocalDescription(offer))
-                                .then(
-                                    () =>
-                                        connection.localDescription &&
-                                        connection.setRemoteDescription(
-                                            connection.localDescription,
-                                        ),
-                                )
-                                .then(() => connection.createAnswer())
-                                .catch(handleError)
-
-                            void solid.onCleanup(() => {
-                                connection.close()
-                            })
+                        if (peer_id === null) {
+                            console.error('no peer id')
+                            return
                         }
-                    })
+
+                        const candidate: RTCIceCandidateInit = event.candidate.toJSON()
+
+                        const response: Message = {
+                            type: 'candidate',
+                            data: candidate,
+                            id: peer_id,
+                        }
+                        sendResponse(response)
+                    }
+
+                    rtc_conn.ondatachannel = event => {
+                        console.log('got data channel!')
+                    }
+
+                    const peer_type$ = solid.atom<'a' | 'b'>()
 
                     return ''
 
