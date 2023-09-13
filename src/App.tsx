@@ -47,12 +47,16 @@ wait for someone to connect
 there needs to be one connection between two peers
 so one peer will create an offer, and send it to ws
 
+! DOES DATA CHANNEL WORK ONLY ONE WAY????
+
 */
 
 interface HiveState {
-    ws: WebSocket
     peers: PeerState[]
     rtc_config: RTCConfiguration
+    onMessage: (message: Message) => void
+    onChannelOpen: (peer: PeerState, channel: RTCDataChannel) => void
+    onChannelClose: (peer: PeerState) => void
 }
 
 interface PeerState {
@@ -107,12 +111,6 @@ interface CandidateMessage extends BaseMessage {
 
 type Message = InitMessage | OfferMessage | AnswerMessage | CandidateMessage
 
-/*
-? What happens if it fails?
-? What happens if the connection is closed?
-? What happens if the connection is closed before the offer is sent?
-*/
-
 function parseMessage(string: string): Message | undefined {
     const data = JSON.parse(string)
     if (
@@ -147,10 +145,6 @@ function parseMessage(string: string): Message | undefined {
     return
 }
 
-function sendResponse(ws: WebSocket, response: Message): void {
-    ws.send(JSON.stringify(response))
-}
-
 function makePeerState(hive: HiveState, id: number): PeerState {
     const conn = new RTCPeerConnection(hive.rtc_config)
 
@@ -166,7 +160,7 @@ function makePeerState(hive: HiveState, id: number): PeerState {
     conn.onicecandidate = event => {
         if (!event.candidate) return
 
-        sendResponse(hive.ws, {
+        hive.onMessage({
             type: 'candidate',
             data: event.candidate.toJSON(),
             id,
@@ -175,27 +169,15 @@ function makePeerState(hive: HiveState, id: number): PeerState {
 
     conn.onconnectionstatechange = () => {
         if (conn.connectionState === 'disconnected') {
-            removePeer(hive.peers, id)
-            cleanupPeer(peer)
+            hive.onChannelClose(peer)
         }
     }
 
     return peer
 }
 
-function removePeer(peers: PeerState[], id: number): void {
-    for (let i = 0; i < peers.length; i++) {
-        if (peers[i]!.id === id) {
-            peers.splice(i, 1)
-            return
-        }
-    }
-}
-
 function cleanupPeer(peer: PeerState): void {
     if (peer.dead) return
-
-    console.log('cleanup peer', peer.id)
 
     peer.conn.close()
     peer.channel?.close()
@@ -225,18 +207,12 @@ function handleMessage(hive: HiveState, data: string): void {
             */
             const channel = peer.conn.createDataChannel('data')
             channel.onopen = () => {
-                console.log('channel open with', peer_id)
+                peer.channel_open = true
+                hive.onChannelOpen(peer, channel)
             }
             channel.addEventListener('close', () => {
-                removePeer(hive.peers, peer_id)
-                cleanupPeer(peer)
+                hive.onChannelClose(peer)
             })
-            channel.onmessage = event => {
-                console.log('channel message', event.data)
-            }
-            channel.onerror = event => {
-                console.log('channel error', event)
-            }
 
             /*
                 Offer
@@ -247,7 +223,7 @@ function handleMessage(hive: HiveState, data: string): void {
                 .then(() => {
                     if (!peer.conn.localDescription) return
 
-                    sendResponse(hive.ws, {
+                    hive.onMessage({
                         type: 'offer',
                         data: peer.conn.localDescription.sdp,
                         id: peer_id,
@@ -265,13 +241,13 @@ function handleMessage(hive: HiveState, data: string): void {
             })
 
             peer.conn.ondatachannel = event => {
-                console.log('got data channel with', peer_id)
-
                 peer.channel = event.channel
                 peer.channel.addEventListener('close', () => {
-                    removePeer(hive.peers, peer_id)
-                    cleanupPeer(peer)
+                    hive.onChannelClose(peer)
                 })
+                peer.channel_open = true
+
+                hive.onChannelOpen(peer, peer.channel)
             }
 
             /*
@@ -283,7 +259,7 @@ function handleMessage(hive: HiveState, data: string): void {
                 .then(() => {
                     if (!peer.conn.localDescription) return
 
-                    sendResponse(hive.ws, {
+                    hive.onMessage({
                         type: 'answer',
                         data: peer.conn.localDescription.sdp,
                         id: peer_id,
@@ -314,7 +290,89 @@ function handleMessage(hive: HiveState, data: string): void {
     }
 }
 
-function App() {
+function App(props: {stun_urls: string[]}) {
+    const ws = new WebSocket('ws://localhost:8080/rtc')
+
+    const message_list = solid.atom<string[]>([])
+    const peer_trigger = solid.atom()
+
+    const hive: HiveState = {
+        peers: [],
+        rtc_config: {iceServers: [{urls: props.stun_urls}]},
+        onMessage: message => {
+            ws.send(JSON.stringify(message))
+        },
+        onChannelOpen: (peer, channel) => {
+            channel.onmessage = event => {
+                message_list().push(peer.id + ' ' + String(event.data))
+                message_list.trigger()
+            }
+            peer_trigger.trigger()
+        },
+        onChannelClose: peer => {
+            for (let i = 0; i < hive.peers.length; i++) {
+                if (hive.peers[i]!.id === peer.id) {
+                    hive.peers.splice(i, 1)
+                    break
+                }
+            }
+
+            cleanupPeer(peer)
+
+            peer_trigger.trigger()
+        },
+    }
+
+    void solid.onCleanup(() => {
+        ws.close()
+        hive.peers.forEach(cleanupPeer)
+    })
+
+    ws.onmessage = event => {
+        handleMessage(hive, event.data)
+    }
+
+    let input!: HTMLInputElement
+    return (
+        <>
+            <form
+                onSubmit={e => {
+                    e.preventDefault()
+                    hive.peers.forEach(peer => {
+                        peer.channel?.send(input.value)
+                    })
+                    input.value = ''
+                }}
+            >
+                <input ref={input} />
+            </form>
+            <div
+                style={`
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    grid-gap: 10px;
+                `}
+            >
+                <div>
+                    <h4>Messages</h4>
+                    <ul>
+                        <solid.For each={message_list()}>{item => <li>{item}</li>}</solid.For>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Peers</h4>
+                    <ul>
+                        <solid.For each={(peer_trigger(), hive.peers)}>
+                            {peer => <li>{peer.id}</li>}
+                        </solid.For>
+                    </ul>
+                </div>
+            </div>
+        </>
+    )
+}
+
+function Root() {
     const stun_urls$ = solid.resource(async () => {
         const result = await fetchStunUrls()
         if (result instanceof Error) throw result
@@ -324,65 +382,10 @@ function App() {
     return (
         <solid.Suspense>
             <solid.Show when={stun_urls$()}>
-                {stunUrls => {
-                    const ws = new WebSocket('ws://localhost:8080/rtc')
-
-                    const hive: HiveState = {
-                        ws,
-                        peers: [],
-                        rtc_config: {iceServers: [{urls: stunUrls()}]},
-                    }
-
-                    void solid.onCleanup(() => {
-                        ws.close()
-                        hive.peers.forEach(cleanupPeer)
-                    })
-
-                    ws.onopen = () => {
-                        console.log('ws open')
-                    }
-
-                    ws.onmessage = event => {
-                        handleMessage(hive, event.data)
-                    }
-
-                    ws.onerror = event => {
-                        console.log({event})
-                    }
-
-                    ws.onclose = () => {
-                        console.log('ws close')
-                    }
-
-                    const peer_type$ = solid.atom<'a' | 'b'>()
-
-                    return ''
-
-                    // return (
-                    //     <>
-                    //         <div>{ws_state$()}</div>
-                    //         <button
-                    //             onClick={() => peer_type$.set('a')}
-                    //             style={{
-                    //                 background: peer_type$() === 'a' ? 'red' : '',
-                    //             }}
-                    //         >
-                    //             A
-                    //         </button>
-                    //         <button
-                    //             onClick={() => peer_type$.set('b')}
-                    //             style={{
-                    //                 background: peer_type$() === 'b' ? 'red' : '',
-                    //             }}
-                    //         >
-                    //             B
-                    //         </button>
-                    //     </>
-                    // )
-                }}
+                {stunUrls => <App stun_urls={stunUrls()} />}
             </solid.Show>
         </solid.Suspense>
     )
 }
 
-export default App
+export default Root
