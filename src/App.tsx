@@ -51,14 +51,16 @@ so one peer will create an offer, and send it to ws
 
 interface HiveState {
     ws: WebSocket
-    conns: PeerState[]
+    peers: PeerState[]
     rtc_config: RTCConfiguration
 }
 
 interface PeerState {
-    conn: RTCPeerConnection
-    channel: RTCDataChannel | null
     id: number
+    conn: RTCPeerConnection
+    dead: boolean
+    channel: RTCDataChannel | null
+    channel_open: boolean
 }
 
 interface BaseMessage {
@@ -149,39 +151,62 @@ function sendResponse(ws: WebSocket, response: Message): void {
     ws.send(JSON.stringify(response))
 }
 
-function getPeerState(message: Message, hive: HiveState): PeerState | undefined {
-    const peer_id = message.id
+function makePeerState(hive: HiveState, id: number): PeerState {
+    const conn = new RTCPeerConnection(hive.rtc_config)
 
-    switch (message.type) {
-        case 'init':
-        case 'offer': {
-            const conn = new RTCPeerConnection(hive.rtc_config)
+    const peer: PeerState = {
+        conn,
+        channel: null,
+        id,
+        channel_open: false,
+        dead: false,
+    }
+    hive.peers.push(peer)
 
-            conn.onicecandidate = event => {
-                if (!event.candidate) return
+    conn.onicecandidate = event => {
+        if (!event.candidate) return
 
-                console.log('ice candidate', event.candidate.address)
+        sendResponse(hive.ws, {
+            type: 'candidate',
+            data: event.candidate.toJSON(),
+            id,
+        })
+    }
 
-                const candidate: RTCIceCandidateInit = event.candidate.toJSON()
-
-                sendResponse(hive.ws, {
-                    type: 'candidate',
-                    data: candidate,
-                    id: peer_id,
-                })
-            }
-
-            const peer: PeerState = {conn, channel: null, id: peer_id}
-            hive.conns.push(peer)
-
-            return peer
+    conn.onconnectionstatechange = () => {
+        if (conn.connectionState === 'disconnected') {
+            removePeer(hive.peers, id)
+            cleanupPeer(peer)
         }
-        case 'answer':
-        case 'candidate': {
-            for (const conn of hive.conns) {
-                if (conn.id === peer_id) return conn
-            }
+    }
+
+    return peer
+}
+
+function removePeer(peers: PeerState[], id: number): void {
+    for (let i = 0; i < peers.length; i++) {
+        if (peers[i]!.id === id) {
+            peers.splice(i, 1)
+            return
         }
+    }
+}
+
+function cleanupPeer(peer: PeerState): void {
+    if (peer.dead) return
+
+    console.log('cleanup peer', peer.id)
+
+    peer.conn.close()
+    peer.channel?.close()
+    peer.channel = null
+    peer.channel_open = false
+    peer.dead = true
+}
+
+function getPeerState(conns: readonly PeerState[], id: number): PeerState | undefined {
+    for (const conn of conns) {
+        if (conn.id === id) return conn
     }
 }
 
@@ -191,24 +216,21 @@ function handleMessage(hive: HiveState, data: string): void {
 
     const peer_id = message.id
 
-    console.log('message', message.type, 'from', peer_id, 'data', message.data)
-
-    const peer = getPeerState(message, hive)
-    if (!peer) return
-
     switch (message.type) {
         case 'init': {
+            const peer = makePeerState(hive, peer_id)
+
             /*
                 New channel
             */
-
             const channel = peer.conn.createDataChannel('data')
             channel.onopen = () => {
-                console.log('channel open')
+                console.log('channel open with', peer_id)
             }
-            channel.onclose = () => {
-                console.log('channel close')
-            }
+            channel.addEventListener('close', () => {
+                removePeer(hive.peers, peer_id)
+                cleanupPeer(peer)
+            })
             channel.onmessage = event => {
                 console.log('channel message', event.data)
             }
@@ -235,20 +257,26 @@ function handleMessage(hive: HiveState, data: string): void {
             break
         }
         case 'offer': {
+            const peer = makePeerState(hive, peer_id)
+
             void peer.conn.setRemoteDescription({
                 type: 'offer',
                 sdp: message.data,
             })
 
             peer.conn.ondatachannel = event => {
-                const channel = event.channel
-                console.log('got data channel!', channel)
+                console.log('got data channel with', peer_id)
+
+                peer.channel = event.channel
+                peer.channel.addEventListener('close', () => {
+                    removePeer(hive.peers, peer_id)
+                    cleanupPeer(peer)
+                })
             }
 
             /*
                 Answer
             */
-
             void peer.conn
                 .createAnswer()
                 .then(answer => peer.conn.setLocalDescription(answer))
@@ -265,6 +293,9 @@ function handleMessage(hive: HiveState, data: string): void {
             break
         }
         case 'answer': {
+            const peer = getPeerState(hive.peers, peer_id)
+            if (!peer) return
+
             void peer.conn.setRemoteDescription({
                 type: 'answer',
                 sdp: message.data,
@@ -273,6 +304,9 @@ function handleMessage(hive: HiveState, data: string): void {
             break
         }
         case 'candidate': {
+            const peer = getPeerState(hive.peers, peer_id)
+            if (!peer) return
+
             void peer.conn.addIceCandidate(message.data)
 
             break
@@ -295,13 +329,13 @@ function App() {
 
                     const hive: HiveState = {
                         ws,
-                        conns: [],
+                        peers: [],
                         rtc_config: {iceServers: [{urls: stunUrls()}]},
                     }
 
                     void solid.onCleanup(() => {
                         ws.close()
-                        hive.conns.forEach(conn => conn.conn.close())
+                        hive.peers.forEach(cleanupPeer)
                     })
 
                     ws.onopen = () => {
