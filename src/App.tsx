@@ -49,14 +49,16 @@ so one peer will create an offer, and send it to ws
 
 */
 
-/*
-TODO multiple connections
-*/
-interface RTCState {
-    ws_state: 'connecting' | 'open' | 'closed'
-    connection: RTCPeerConnection
-    channels: RTCDataChannel | null
-    peer_id: number | null
+interface HiveState {
+    ws: WebSocket
+    conns: PeerState[]
+    rtc_config: RTCConfiguration
+}
+
+interface PeerState {
+    conn: RTCPeerConnection
+    channel: RTCDataChannel | null
+    id: number
 }
 
 interface BaseMessage {
@@ -109,7 +111,7 @@ type Message = InitMessage | OfferMessage | AnswerMessage | CandidateMessage
 ? What happens if the connection is closed before the offer is sent?
 */
 
-function messageFromString(string: string): Message | undefined {
+function parseMessage(string: string): Message | undefined {
     const data = JSON.parse(string)
     if (
         typeof data !== 'object' ||
@@ -143,19 +145,64 @@ function messageFromString(string: string): Message | undefined {
     return
 }
 
-type SendResponse = (response: Message) => void
+function sendResponse(ws: WebSocket, response: Message): void {
+    ws.send(JSON.stringify(response))
+}
 
-function handleMessage(state: RTCState, message: Message, sendResponse: SendResponse): void {
-    const {connection} = state
+function getPeerState(message: Message, hive: HiveState): PeerState | undefined {
+    const peer_id = message.id
 
-    console.log('message', message)
+    switch (message.type) {
+        case 'init':
+        case 'offer': {
+            const conn = new RTCPeerConnection(hive.rtc_config)
+
+            conn.onicecandidate = event => {
+                if (!event.candidate) return
+
+                console.log('ice candidate', event.candidate.address)
+
+                const candidate: RTCIceCandidateInit = event.candidate.toJSON()
+
+                sendResponse(hive.ws, {
+                    type: 'candidate',
+                    data: candidate,
+                    id: peer_id,
+                })
+            }
+
+            const peer: PeerState = {conn, channel: null, id: peer_id}
+            hive.conns.push(peer)
+
+            return peer
+        }
+        case 'answer':
+        case 'candidate': {
+            for (const conn of hive.conns) {
+                if (conn.id === peer_id) return conn
+            }
+        }
+    }
+}
+
+function handleMessage(hive: HiveState, data: string): void {
+    const message = parseMessage(data)
+    if (!message) return
+
+    const peer_id = message.id
+
+    console.log('message', message.type, 'from', peer_id, 'data', message.data)
+
+    const peer = getPeerState(message, hive)
+    if (!peer) return
 
     switch (message.type) {
         case 'init': {
             /*
-                Data channel
+                New channel
             */
-            const channel = connection.createDataChannel('data')
+
+            const channel = peer.conn.createDataChannel('data')
             channel.onopen = () => {
                 console.log('channel open')
             }
@@ -169,56 +216,56 @@ function handleMessage(state: RTCState, message: Message, sendResponse: SendResp
                 console.log('channel error', event)
             }
 
-            state.channels = channel
-            state.peer_id = message.id
-
             /*
                 Offer
             */
-            void connection
+            void peer.conn
                 .createOffer()
-                .then(offer => connection.setLocalDescription(offer))
+                .then(offer => peer.conn.setLocalDescription(offer))
                 .then(() => {
-                    if (!connection.localDescription) return
+                    if (!peer.conn.localDescription) return
 
-                    const sdp = connection.localDescription.sdp
-                    const response: Message = {
+                    sendResponse(hive.ws, {
                         type: 'offer',
-                        data: sdp,
-                        id: message.id,
-                    }
-                    sendResponse(response)
+                        data: peer.conn.localDescription.sdp,
+                        id: peer_id,
+                    })
                 })
 
             break
         }
         case 'offer': {
-            state.peer_id = message.id
-
-            void connection.setRemoteDescription({
+            void peer.conn.setRemoteDescription({
                 type: 'offer',
                 sdp: message.data,
             })
 
-            void connection
-                .createAnswer()
-                .then(answer => connection.setLocalDescription(answer))
-                .then(() => {
-                    if (!connection.localDescription) return
+            peer.conn.ondatachannel = event => {
+                const channel = event.channel
+                console.log('got data channel!', channel)
+            }
 
-                    const sdp = connection.localDescription.sdp
-                    const response: Message = {
+            /*
+                Answer
+            */
+
+            void peer.conn
+                .createAnswer()
+                .then(answer => peer.conn.setLocalDescription(answer))
+                .then(() => {
+                    if (!peer.conn.localDescription) return
+
+                    sendResponse(hive.ws, {
                         type: 'answer',
-                        data: sdp,
-                        id: message.id,
-                    }
-                    sendResponse(response)
+                        data: peer.conn.localDescription.sdp,
+                        id: peer_id,
+                    })
                 })
 
             break
         }
         case 'answer': {
-            void connection.setRemoteDescription({
+            void peer.conn.setRemoteDescription({
                 type: 'answer',
                 sdp: message.data,
             })
@@ -226,7 +273,7 @@ function handleMessage(state: RTCState, message: Message, sendResponse: SendResp
             break
         }
         case 'candidate': {
-            void connection.addIceCandidate(message.data)
+            void peer.conn.addIceCandidate(message.data)
 
             break
         }
@@ -236,7 +283,6 @@ function handleMessage(state: RTCState, message: Message, sendResponse: SendResp
 function App() {
     const stun_urls$ = solid.resource(async () => {
         const result = await fetchStunUrls()
-        // eslint-disable-next-line functional/no-throw-statements
         if (result instanceof Error) throw result
         return result
     })
@@ -245,36 +291,25 @@ function App() {
         <solid.Suspense>
             <solid.Show when={stun_urls$()}>
                 {stunUrls => {
-                    const rtc_conn = new RTCPeerConnection({
-                        iceServers: [{urls: stunUrls()}],
-                    })
-
                     const ws = new WebSocket('ws://localhost:8080/rtc')
-                    const rtc_state$ = solid.atom<RTCState>({
-                        ws_state: 'connecting',
-                        connection: rtc_conn,
-                        channels: null,
-                        peer_id: null,
-                    })
 
-                    void solid.onCleanup(() => {
-                        rtc_conn.close()
-                        ws.close()
-                    })
-
-                    const sendResponse: SendResponse = response => {
-                        ws.send(JSON.stringify(response))
+                    const hive: HiveState = {
+                        ws,
+                        conns: [],
+                        rtc_config: {iceServers: [{urls: stunUrls()}]},
                     }
 
+                    void solid.onCleanup(() => {
+                        ws.close()
+                        hive.conns.forEach(conn => conn.conn.close())
+                    })
+
                     ws.onopen = () => {
-                        rtc_state$().ws_state = 'open'
-                        rtc_state$.trigger()
+                        console.log('ws open')
                     }
 
                     ws.onmessage = event => {
-                        const message = messageFromString(event.data)
-                        if (!message) return
-                        handleMessage(rtc_state$(), message, sendResponse)
+                        handleMessage(hive, event.data)
                     }
 
                     ws.onerror = event => {
@@ -282,34 +317,7 @@ function App() {
                     }
 
                     ws.onclose = () => {
-                        rtc_state$().ws_state = 'closed'
-                        rtc_state$.trigger()
-                    }
-
-                    rtc_conn.onicecandidate = event => {
-                        if (!event.candidate) return
-
-                        console.log('ice candidate', event.candidate.address)
-
-                        const peer_id = rtc_state$().peer_id
-
-                        if (peer_id === null) {
-                            console.error('no peer id')
-                            return
-                        }
-
-                        const candidate: RTCIceCandidateInit = event.candidate.toJSON()
-
-                        const response: Message = {
-                            type: 'candidate',
-                            data: candidate,
-                            id: peer_id,
-                        }
-                        sendResponse(response)
-                    }
-
-                    rtc_conn.ondatachannel = event => {
-                        console.log('got data channel!')
+                        console.log('ws close')
                     }
 
                     const peer_type$ = solid.atom<'a' | 'b'>()

@@ -44,11 +44,6 @@
         ],
         "eslint-comments/no-unused-disable": "warn",
         /*
-            no throwing errors
-        */
-        "functional/no-throw-statements": "warn",
-        "functional/no-promise-reject": "warn",
-        /*
             prevent unexpected behavior
         */
         "@typescript-eslint/ban-types": "warn",
