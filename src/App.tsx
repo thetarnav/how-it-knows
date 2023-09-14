@@ -47,24 +47,22 @@ wait for someone to connect
 there needs to be one connection between two peers
 so one peer will create an offer, and send it to ws
 
-! DOES DATA CHANNEL WORK ONLY ONE WAY????
-
 */
 
 interface HiveState {
     peers: PeerState[]
     rtc_config: RTCConfiguration
     onMessage: (message: Message) => void
-    onChannelOpen: (peer: PeerState, channel: RTCDataChannel) => void
-    onChannelClose: (peer: PeerState) => void
+    onPeerConnect: (peer: PeerState) => void
+    onPeerDisconnect: (peer: PeerState) => void
 }
 
 interface PeerState {
     id: number
     conn: RTCPeerConnection
-    dead: boolean
-    channel: RTCDataChannel | null
-    channel_open: boolean
+    state: 'connecting' | 'connected' | 'disconnected'
+    in_channel: RTCDataChannel | null
+    out_channel: RTCDataChannel
 }
 
 interface BaseMessage {
@@ -146,16 +144,17 @@ function parseMessage(string: string): Message | undefined {
 }
 
 function makePeerState(hive: HiveState, id: number): PeerState {
-    const conn = new RTCPeerConnection(hive.rtc_config)
-
     const peer: PeerState = {
-        conn,
-        channel: null,
+        conn: null!,
         id,
-        channel_open: false,
-        dead: false,
+        state: 'connecting',
+        in_channel: null,
+        out_channel: null!,
     }
     hive.peers.push(peer)
+
+    const conn = new RTCPeerConnection(hive.rtc_config)
+    peer.conn = conn
 
     conn.onicecandidate = event => {
         if (!event.candidate) return
@@ -169,21 +168,58 @@ function makePeerState(hive: HiveState, id: number): PeerState {
 
     conn.onconnectionstatechange = () => {
         if (conn.connectionState === 'disconnected') {
-            hive.onChannelClose(peer)
+            hive.onPeerDisconnect(peer)
         }
     }
+
+    conn.ondatachannel = event => {
+        peer.in_channel = event.channel
+
+        handlePeerChannelOpen(hive, peer)
+
+        peer.in_channel.addEventListener('close', () => {
+            handlePeerChannelClose(hive, peer)
+        })
+    }
+
+    const out_channel = peer.conn.createDataChannel('data')
+    peer.out_channel = out_channel
+
+    out_channel.onopen = () => {
+        handlePeerChannelOpen(hive, peer)
+    }
+    out_channel.addEventListener('close', () => {
+        handlePeerChannelClose(hive, peer)
+    })
 
     return peer
 }
 
-function cleanupPeer(peer: PeerState): void {
-    if (peer.dead) return
+function handlePeerChannelOpen(hive: HiveState, peer: PeerState): void {
+    if (
+        peer.state === 'disconnected' ||
+        !peer.in_channel ||
+        peer.in_channel.readyState !== 'open' ||
+        peer.out_channel.readyState !== 'open'
+    )
+        return
 
+    peer.state = 'connected'
+    hive.onPeerConnect(peer)
+}
+
+function handlePeerChannelClose(hive: HiveState, peer: PeerState): void {
+    if (peer.state === 'disconnected') return
+    cleanupPeer(peer)
+    hive.onPeerDisconnect(peer)
+}
+
+function cleanupPeer(peer: PeerState): void {
+    peer.state = 'disconnected'
     peer.conn.close()
-    peer.channel?.close()
-    peer.channel = null
-    peer.channel_open = false
-    peer.dead = true
+    peer.in_channel?.close()
+    peer.in_channel = null
+    peer.out_channel.close()
 }
 
 function getPeerState(conns: readonly PeerState[], id: number): PeerState | undefined {
@@ -201,18 +237,6 @@ function handleMessage(hive: HiveState, data: string): void {
     switch (message.type) {
         case 'init': {
             const peer = makePeerState(hive, peer_id)
-
-            /*
-                New channel
-            */
-            const channel = peer.conn.createDataChannel('data')
-            channel.onopen = () => {
-                peer.channel_open = true
-                hive.onChannelOpen(peer, channel)
-            }
-            channel.addEventListener('close', () => {
-                hive.onChannelClose(peer)
-            })
 
             /*
                 Offer
@@ -239,16 +263,6 @@ function handleMessage(hive: HiveState, data: string): void {
                 type: 'offer',
                 sdp: message.data,
             })
-
-            peer.conn.ondatachannel = event => {
-                peer.channel = event.channel
-                peer.channel.addEventListener('close', () => {
-                    hive.onChannelClose(peer)
-                })
-                peer.channel_open = true
-
-                hive.onChannelOpen(peer, peer.channel)
-            }
 
             /*
                 Answer
@@ -291,7 +305,7 @@ function handleMessage(hive: HiveState, data: string): void {
 }
 
 function App(props: {stun_urls: string[]}) {
-    const ws = new WebSocket('ws://localhost:8080/rtc')
+    const ws = new WebSocket('ws://' + location.hostname + ':8080/rtc')
 
     const message_list = solid.atom<string[]>([])
     const peer_trigger = solid.atom()
@@ -302,23 +316,20 @@ function App(props: {stun_urls: string[]}) {
         onMessage: message => {
             ws.send(JSON.stringify(message))
         },
-        onChannelOpen: (peer, channel) => {
-            channel.onmessage = event => {
+        onPeerConnect(peer) {
+            peer.in_channel!.onmessage = event => {
                 message_list().push(peer.id + ' ' + String(event.data))
                 message_list.trigger()
             }
             peer_trigger.trigger()
         },
-        onChannelClose: peer => {
+        onPeerDisconnect(peer) {
             for (let i = 0; i < hive.peers.length; i++) {
                 if (hive.peers[i]!.id === peer.id) {
                     hive.peers.splice(i, 1)
                     break
                 }
             }
-
-            cleanupPeer(peer)
-
             peer_trigger.trigger()
         },
     }
@@ -339,7 +350,8 @@ function App(props: {stun_urls: string[]}) {
                 onSubmit={e => {
                     e.preventDefault()
                     hive.peers.forEach(peer => {
-                        peer.channel?.send(input.value)
+                        if (peer.state !== 'connected') return
+                        peer.out_channel.send(input.value)
                     })
                     input.value = ''
                 }}
