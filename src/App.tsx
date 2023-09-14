@@ -66,83 +66,6 @@ interface PeerState {
     out_channel: RTCDataChannel
 }
 
-interface BaseMessage {
-    type: string
-    data: unknown
-    id: number
-}
-
-/**
- * You got an id from the server.
- */
-interface IdMessage extends BaseMessage {
-    type: 'id'
-}
-
-/**
- * Initiate a peer connection.
- * This will create an offer and send it to the server.
- */
-interface InitMessage extends BaseMessage {
-    type: 'init'
-}
-
-/**
- * You got an offer from a peer.
- * Set the remote description, create an answer, and send it back to the peer.
- */
-interface OfferMessage extends BaseMessage {
-    type: 'offer'
-    data: string
-}
-
-/**
- * You got an offer answer from a peer.
- * Set the remote description.
- */
-interface AnswerMessage extends BaseMessage {
-    type: 'answer'
-    data: string
-}
-
-/**
- * You got an ice candidate from a peer.
- * Add the ice candidate.
- */
-interface CandidateMessage extends BaseMessage {
-    type: 'candidate'
-    data: RTCIceCandidateInit
-}
-
-type Message = IdMessage | InitMessage | OfferMessage | AnswerMessage | CandidateMessage
-
-function parseMessage(string: string): Message | undefined {
-    const message = JSON.parse(string)
-    if (
-        typeof message !== 'object' ||
-        message === null ||
-        typeof message.type !== 'string' ||
-        typeof message.id !== 'number'
-    )
-        return
-
-    switch (message.type as Message['type']) {
-        case 'id':
-        case 'init':
-            return message
-        case 'offer':
-        case 'answer': {
-            if (typeof message.data !== 'string') return
-            return message
-        }
-        case 'candidate': {
-            if (typeof message.data !== 'object' || message.data === null) return
-            return message
-        }
-    }
-    return
-}
-
 function makePeerState(hive: HiveState, id: number): PeerState {
     const peer: PeerState = {
         conn: null!,
@@ -228,40 +151,120 @@ function getPeerState(conns: readonly PeerState[], id: number): PeerState | unde
     }
 }
 
+interface BaseMessage {
+    type: string
+    data: unknown
+    id?: number
+}
+
+/**
+ * You got an id from the server.
+ */
+interface IdMessage extends BaseMessage {
+    type: 'id'
+    data: number // your id
+}
+
+/**
+ * Initiate a peer connection.
+ * This will create an offer and send it to the server.
+ */
+interface InitMessage extends BaseMessage {
+    type: 'init'
+    data: number[] // ids of peers to connect to
+}
+
+/**
+ * You got an offer from a peer.
+ * Set the remote description, create an answer, and send it back to the peer.
+ */
+interface OfferMessage extends BaseMessage {
+    type: 'offer'
+    data: string
+    id: number
+}
+
+/**
+ * You got an offer answer from a peer.
+ * Set the remote description.
+ */
+interface AnswerMessage extends BaseMessage {
+    type: 'answer'
+    data: string
+    id: number
+}
+
+/**
+ * You got an ice candidate from a peer.
+ * Add the ice candidate.
+ */
+interface CandidateMessage extends BaseMessage {
+    type: 'candidate'
+    data: RTCIceCandidateInit
+    id: number
+}
+
+type Message = IdMessage | InitMessage | OfferMessage | AnswerMessage | CandidateMessage
+
+function parseMessage(string: string): Message | undefined {
+    const message = JSON.parse(string)
+    if (typeof message !== 'object' || !message || typeof message.type !== 'string') return
+
+    switch (message.type as Message['type']) {
+        case 'id':
+            if (typeof message.data !== 'number') return
+            break
+        case 'init':
+            if (!Array.isArray(message.data)) return
+            break
+        case 'offer':
+        case 'answer': {
+            if (typeof message.data !== 'string' || typeof message.id !== 'number') return
+            break
+        }
+        case 'candidate': {
+            if (typeof message.data !== 'object' || !message.data || typeof message.id !== 'number')
+                return
+            break
+        }
+    }
+    return message
+}
+
 function handleMessage(hive: HiveState, data: string): void {
     const message = parseMessage(data)
     if (!message) return
 
-    const peer_id = message.id
-
     switch (message.type) {
         case 'id': {
-            hive.id.set(message.id)
+            hive.id.set(message.data)
             break
         }
         case 'init': {
-            const peer = makePeerState(hive, peer_id)
+            for (const peer_id of message.data) {
+                const peer = makePeerState(hive, peer_id)
 
-            /*
-                Offer
-            */
-            void peer.conn
-                .createOffer()
-                .then(offer => peer.conn.setLocalDescription(offer))
-                .then(() => {
-                    if (!peer.conn.localDescription) return
+                /*
+                    Offer
+                */
+                void peer.conn
+                    .createOffer()
+                    .then(offer => peer.conn.setLocalDescription(offer))
+                    .then(() => {
+                        if (!peer.conn.localDescription) return
 
-                    hive.onMessage({
-                        type: 'offer',
-                        data: peer.conn.localDescription.sdp,
-                        id: peer_id,
+                        hive.onMessage({
+                            type: 'offer',
+                            data: peer.conn.localDescription.sdp,
+                            id: peer_id,
+                        })
                     })
-                })
+            }
 
             break
         }
         case 'offer': {
-            const peer = makePeerState(hive, peer_id)
+            const peer = makePeerState(hive, message.id)
 
             void peer.conn.setRemoteDescription({
                 type: 'offer',
@@ -280,14 +283,14 @@ function handleMessage(hive: HiveState, data: string): void {
                     hive.onMessage({
                         type: 'answer',
                         data: peer.conn.localDescription.sdp,
-                        id: peer_id,
+                        id: message.id,
                     })
                 })
 
             break
         }
         case 'answer': {
-            const peer = getPeerState(hive.peers, peer_id)
+            const peer = getPeerState(hive.peers, message.id)
             if (!peer) return
 
             void peer.conn.setRemoteDescription({
@@ -298,7 +301,7 @@ function handleMessage(hive: HiveState, data: string): void {
             break
         }
         case 'candidate': {
-            const peer = getPeerState(hive.peers, peer_id)
+            const peer = getPeerState(hive.peers, message.id)
             if (!peer) return
 
             void peer.conn.addIceCandidate(message.data)

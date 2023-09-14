@@ -107,28 +107,26 @@ func rtcConnection(w http.ResponseWriter, r *http.Request) {
 	*/
 	peer.Ws.WriteJSON(Message{
 		Type: "id",
-		Id:   id,
+		Data: id,
 	})
 
 	/*
 		Send all peers to the new peer
-		TODO: send all peers in one message
 	*/
-	for _, p := range peerConnections {
+	{
+		ids := make([]int64, len(peerConnections))
+		for i, p := range peerConnections {
+			ids[i] = p.Id
+		}
 		peer.Ws.WriteJSON(Message{
 			Type: "init",
-			Id:   p.Id,
+			Data: ids,
 		})
 	}
 
 	peerConnections = append(peerConnections, peer)
 	defer func() {
-		for i, p := range peerConnections {
-			if p.Id == id {
-				peerConnections = append(peerConnections[:i], peerConnections[i+1:]...)
-				break
-			}
-		}
+		peerConnections = filter(peerConnections, peer)
 	}()
 
 	/*
@@ -143,7 +141,7 @@ func rtcConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println("msg from", id, "to", msg.Id, "type", msg.Type)
+		fmt.Println(msg.Type, "from", id, "to", msg.Id)
 
 		for _, p := range peerConnections {
 			if p.Id != msg.Id {
@@ -173,4 +171,17 @@ func main() {
 	// })
 
 	http.ListenAndServe(port_srt, nil)
+}
+
+func splice[T comparable](slice []T, i int) []T {
+	return append(slice[:i], slice[i+1:]...)
+}
+
+func filter[T comparable](slice []T, id T) []T {
+	for i, v := range slice {
+		if v == id {
+			return splice(slice, i)
+		}
+	}
+	return slice
 }
