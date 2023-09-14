@@ -366,10 +366,13 @@ function App(props: {stun_urls: string[]}) {
             <form
                 onSubmit={e => {
                     e.preventDefault()
+                    const value = input.value
                     hive.peers.forEach(peer => {
                         if (peer.state !== 'connected') return
-                        peer.out_channel.send(input.value)
+                        peer.out_channel.send(value)
                     })
+                    message_list().push('me ' + value)
+                    message_list.trigger()
                     input.value = ''
                 }}
             >
