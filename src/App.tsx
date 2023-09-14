@@ -50,6 +50,7 @@ so one peer will create an offer, and send it to ws
 */
 
 interface HiveState {
+    id: solid.Atom<number | undefined>
     peers: PeerState[]
     rtc_config: RTCConfiguration
     onMessage: (message: Message) => void
@@ -72,12 +73,18 @@ interface BaseMessage {
 }
 
 /**
+ * You got an id from the server.
+ */
+interface IdMessage extends BaseMessage {
+    type: 'id'
+}
+
+/**
  * Initiate a peer connection.
  * This will create an offer and send it to the server.
  */
 interface InitMessage extends BaseMessage {
     type: 'init'
-    data: undefined
 }
 
 /**
@@ -107,37 +114,30 @@ interface CandidateMessage extends BaseMessage {
     data: RTCIceCandidateInit
 }
 
-type Message = InitMessage | OfferMessage | AnswerMessage | CandidateMessage
+type Message = IdMessage | InitMessage | OfferMessage | AnswerMessage | CandidateMessage
 
 function parseMessage(string: string): Message | undefined {
-    const data = JSON.parse(string)
+    const message = JSON.parse(string)
     if (
-        typeof data !== 'object' ||
-        data === null ||
-        typeof data.type !== 'string' ||
-        typeof data.id !== 'number'
+        typeof message !== 'object' ||
+        message === null ||
+        typeof message.type !== 'string' ||
+        typeof message.id !== 'number'
     )
         return
 
-    switch (data.type) {
+    switch (message.type as Message['type']) {
+        case 'id':
         case 'init':
-            return {type: 'init', id: data.id, data: undefined}
+            return message
         case 'offer':
         case 'answer': {
-            if (typeof data.data !== 'string') return
-            return {
-                type: data.type,
-                data: data.data,
-                id: data.id,
-            }
+            if (typeof message.data !== 'string') return
+            return message
         }
         case 'candidate': {
-            if (typeof data.data !== 'object' || data.data === null) return
-            return {
-                type: 'candidate',
-                data: data.data,
-                id: data.id,
-            }
+            if (typeof message.data !== 'object' || message.data === null) return
+            return message
         }
     }
     return
@@ -235,6 +235,10 @@ function handleMessage(hive: HiveState, data: string): void {
     const peer_id = message.id
 
     switch (message.type) {
+        case 'id': {
+            hive.id.set(message.id)
+            break
+        }
         case 'init': {
             const peer = makePeerState(hive, peer_id)
 
@@ -311,19 +315,20 @@ function App(props: {stun_urls: string[]}) {
     const peer_trigger = solid.atom()
 
     const hive: HiveState = {
+        id: solid.atom(),
         peers: [],
         rtc_config: {iceServers: [{urls: props.stun_urls}]},
         onMessage: message => {
             ws.send(JSON.stringify(message))
         },
-        onPeerConnect(peer) {
+        onPeerConnect: peer => {
             peer.in_channel!.onmessage = event => {
                 message_list().push(peer.id + ' ' + String(event.data))
                 message_list.trigger()
             }
             peer_trigger.trigger()
         },
-        onPeerDisconnect(peer) {
+        onPeerDisconnect: peer => {
             for (let i = 0; i < hive.peers.length; i++) {
                 if (hive.peers[i]!.id === peer.id) {
                     hive.peers.splice(i, 1)
@@ -346,6 +351,15 @@ function App(props: {stun_urls: string[]}) {
     let input!: HTMLInputElement
     return (
         <>
+            <div
+                style={`
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                `}
+            >
+                <h4>Own ID: {hive.id()}</h4>
+            </div>
             <form
                 onSubmit={e => {
                     e.preventDefault()

@@ -1,13 +1,7 @@
 {
     "root": true,
     "parser": "@typescript-eslint/parser",
-    "plugins": [
-        "@typescript-eslint",
-        "no-only-tests",
-        "eslint-comments",
-        "functional",
-        "@nothing-but"
-    ],
+    "plugins": ["@typescript-eslint", "no-only-tests", "eslint-comments", "@nothing-but"],
     "ignorePatterns": ["node_modules", "dist", "packages/*/dev"],
     "parserOptions": {
         "project": ["./tsconfig.json", "./tsconfig.node.json", "./tsconfig.lib.json"],

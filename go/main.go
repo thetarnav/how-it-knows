@@ -103,9 +103,17 @@ func rtcConnection(w http.ResponseWriter, r *http.Request) {
 	peer := &PeerConnection{Id: id, Ws: conn}
 
 	/*
-		Send all peers to the new peer
+	   Send id to the new peer
 	*/
+	peer.Ws.WriteJSON(Message{
+		Type: "id",
+		Id:   id,
+	})
 
+	/*
+		Send all peers to the new peer
+		TODO: send all peers in one message
+	*/
 	for _, p := range peerConnections {
 		peer.Ws.WriteJSON(Message{
 			Type: "init",
