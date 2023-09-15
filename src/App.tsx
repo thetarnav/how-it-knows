@@ -1,3 +1,4 @@
+import * as platform from '@nothing-but/platform'
 import {Arr, Misc} from '@nothing-but/utils'
 import './App.css'
 import * as solid from './atom.ts'
@@ -147,19 +148,15 @@ function makePeerState(hive: HiveState, id: number): PeerState {
     })
 
     /*
-        Check if the channel is open
+        iOS doesn't support onopen
+        so we have to poll
+        https://github.com/webrtc/samples/issues/1123#issuecomment-454325354
     */
-    peer.interval = setInterval(() => {
-        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
-        switch (out_channel.readyState) {
-            case 'open':
-                handlePeerChannelOpen(hive, peer)
-                break
-            case 'closed':
-                handlePeerChannelClose(hive, peer)
-                break
-        }
-    }, 500)
+    if (platform.is_ios) {
+        peer.interval = setInterval(() => {
+            handlePeerChannelOpen(hive, peer)
+        }, 500)
+    }
 
     return peer
 }
@@ -174,12 +171,23 @@ function cleanupPeer(peer: PeerState): void {
     peer.interval = 0
 }
 
+function isChannelOpen(channel: RTCDataChannel | null): boolean {
+    return !!channel && channel.readyState === 'open'
+}
+
+function isPeerConnected(peer: PeerState): boolean {
+    return (
+        peer.state === 'connected' &&
+        isChannelOpen(peer.in_channel) &&
+        isChannelOpen(peer.out_channel)
+    )
+}
+
 function handlePeerChannelOpen(hive: HiveState, peer: PeerState): void {
     if (
-        peer.state === 'disconnected' ||
-        !peer.in_channel ||
-        peer.in_channel.readyState !== 'open' ||
-        peer.out_channel.readyState !== 'open'
+        peer.state !== 'connecting' ||
+        !isChannelOpen(peer.in_channel) ||
+        !isChannelOpen(peer.out_channel)
     )
         return
 
@@ -350,7 +358,11 @@ function handleMessage(hive: HiveState, data: string): void {
                 sdp: message.data,
             })
 
-            if (!prev_remote) {
+            /*
+                iOS needs offers and answers from both sides
+                https://github.com/webrtc/samples/issues/1123#issuecomment-454325354
+            */
+            if (platform.is_ios && !prev_remote) {
                 hive.onMessage({
                     type: 'init',
                     data: [hive.id()!],
@@ -405,6 +417,9 @@ function App(props: {stun_urls: string[]}) {
         },
     }
 
+    // @ts-ignore
+    window.hive = hive
+
     void solid.onCleanup(() => {
         ws.close()
         hive.peers.forEach(cleanupPeer)
@@ -413,6 +428,11 @@ function App(props: {stun_urls: string[]}) {
     ws.onmessage = event => {
         handleMessage(hive, event.data)
     }
+
+    const peerList = solid.createMemo(() => {
+        void peer_trigger()
+        return hive.peers.filter(isPeerConnected)
+    })
 
     let input!: HTMLInputElement
     return (
@@ -457,9 +477,7 @@ function App(props: {stun_urls: string[]}) {
                 <div>
                     <h4>Peers</h4>
                     <ul>
-                        <solid.For each={(peer_trigger(), hive.peers)}>
-                            {peer => <li>{peer.id}</li>}
-                        </solid.For>
+                        <solid.For each={peerList()}>{peer => <li>{peer.id}</li>}</solid.For>
                     </ul>
                 </div>
             </div>
