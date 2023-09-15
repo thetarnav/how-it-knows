@@ -64,15 +64,13 @@ type RTCIceCandidate struct {
 type Message struct {
 	Type string      `json:"type"`
 	Data interface{} `json:"data"`
-	Id   int64       `json:"id"`
+	Id   string      `json:"id"`
 }
 
 type PeerConnection struct {
-	Id int64
+	Id string
 	Ws *websocket.Conn
 }
-
-var lastId int64 = 0
 
 var peerConnections []*PeerConnection
 
@@ -95,27 +93,30 @@ func rtcConnection(w http.ResponseWriter, r *http.Request) {
 	/*
 		New peer connection!
 	*/
+	var id string
+	{
+		t, buf, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
+		if t != websocket.TextMessage {
+			fmt.Println("err", "t != websocket.TextMessage")
+			return
+		}
+		id = string(buf)
+	}
 
-	id := lastId + 1
-	lastId = id
-
-	fmt.Println("New peer connection", id, "(len:", len(peerConnections)+1, ")")
+	fmt.Println("New peer connection", id)
+	fmt.Println("peers length", len(peerConnections)+1)
 
 	peer := &PeerConnection{Id: id, Ws: conn}
-
-	/*
-	   Send id to the new peer
-	*/
-	peer.Ws.WriteJSON(Message{
-		Type: "id",
-		Data: id,
-	})
 
 	/*
 		Send all peers to the new peer
 	*/
 	{
-		ids := make([]int64, len(peerConnections))
+		ids := make([]string, len(peerConnections))
 		for i, p := range peerConnections {
 			ids[i] = p.Id
 		}
@@ -133,7 +134,6 @@ func rtcConnection(w http.ResponseWriter, r *http.Request) {
 	/*
 	   Send messages between peers
 	*/
-
 	for {
 		var msg Message
 		err := conn.ReadJSON(&msg)

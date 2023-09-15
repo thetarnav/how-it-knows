@@ -1,7 +1,15 @@
-import * as platform from '@nothing-but/platform'
-import {Arr, Misc} from '@nothing-but/utils'
 import './App.css'
-import * as solid from './atom.ts'
+import {platform, solid} from './lib.ts'
+
+function randomId(): string {
+    const time = new Date().getTime().toString(36).padStart(8, '0').substring(0, 8)
+    const rand = Math.random().toString(36).slice(2).padStart(8, '0').substring(0, 8)
+    let id = ''
+    for (let i = 0; i < 16; i++) {
+        id += i % 2 === 0 ? time[7 - i / 2] : rand[(i - 1) / 2]
+    }
+    return id
+}
 
 function getMeteredIceServers(): readonly RTCIceServer[] {
     const ice_servers: RTCIceServer[] = [{urls: 'stun:stun.relay.metered.ca:80'}]
@@ -39,21 +47,21 @@ function getMeteredIceServers(): readonly RTCIceServer[] {
 
 const METERED_ICE_SERVERS = getMeteredIceServers()
 
-const fetchStunUrls = async (): Promise<string[] | Error> => {
-    try {
-        const response = await fetch(
-            'https://raw.githubusercontent.com/pradt2/always-online-stun/master/valid_hosts.txt',
-        )
-        const text = await response.text()
+// const fetchStunUrls = async (): Promise<string[] | Error> => {
+//     try {
+//         const response = await fetch(
+//             'https://raw.githubusercontent.com/pradt2/always-online-stun/master/valid_hosts.txt',
+//         )
+//         const text = await response.text()
 
-        return Arr.map_non_nullable(text.split('\n'), line => {
-            if (line.length === 0) return null
-            return `stun:${line}`
-        })
-    } catch (e) {
-        return Misc.toError(e)
-    }
-}
+//         return array.map_non_nullable(text.split('\n'), line => {
+//             if (line.length === 0) return null
+//             return `stun:${line}`
+//         })
+//     } catch (e) {
+//         return misc.toError(e)
+//     }
+// }
 
 /*
 
@@ -71,7 +79,7 @@ so one peer will create an offer, and send it to ws
 */
 
 interface HiveState {
-    id: solid.Atom<number | undefined>
+    id: string
     peers: PeerState[]
     rtc_config: RTCConfiguration
     onMessage: (message: Message) => void
@@ -80,7 +88,7 @@ interface HiveState {
 }
 
 interface PeerState {
-    id: number
+    id: string
     conn: RTCPeerConnection
     state: 'connecting' | 'connected' | 'disconnected'
     in_channel: RTCDataChannel | null
@@ -91,7 +99,7 @@ interface PeerState {
 onerror = (_, source, lineno, colno, error) =>
     alert(`Error: ${error && error.message}\nSource: ${source}\nLine: ${lineno}\nColumn: ${colno}`)
 
-function makePeerState(hive: HiveState, id: number): PeerState {
+function makePeerState(hive: HiveState, id: string): PeerState {
     const peer: PeerState = {
         conn: null!,
         id,
@@ -192,7 +200,7 @@ function handlePeerChannelClose(hive: HiveState, peer: PeerState): void {
     hive.onPeerDisconnect(peer)
 }
 
-function getPeerState(conns: readonly PeerState[], id: number): PeerState | undefined {
+function getPeerState(conns: readonly PeerState[], id: string): PeerState | undefined {
     for (const conn of conns) {
         if (conn.id === id) return conn
     }
@@ -201,15 +209,7 @@ function getPeerState(conns: readonly PeerState[], id: number): PeerState | unde
 interface BaseMessage {
     type: string
     data: unknown
-    id?: number
-}
-
-/**
- * You got an id from the server.
- */
-interface IdMessage extends BaseMessage {
-    type: 'id'
-    data: number // your id
+    id?: string
 }
 
 /**
@@ -218,7 +218,7 @@ interface IdMessage extends BaseMessage {
  */
 interface InitMessage extends BaseMessage {
     type: 'init'
-    data: number[] // ids of peers to connect to
+    data: string[] // ids of peers to connect to
 }
 
 /**
@@ -228,7 +228,7 @@ interface InitMessage extends BaseMessage {
 interface OfferMessage extends BaseMessage {
     type: 'offer'
     data: string
-    id: number
+    id: string
 }
 
 /**
@@ -238,7 +238,7 @@ interface OfferMessage extends BaseMessage {
 interface AnswerMessage extends BaseMessage {
     type: 'answer'
     data: string
-    id: number
+    id: string
 }
 
 /**
@@ -248,47 +248,39 @@ interface AnswerMessage extends BaseMessage {
 interface CandidateMessage extends BaseMessage {
     type: 'candidate'
     data: RTCIceCandidateInit
-    id: number
+    id: string
 }
 
-type Message = IdMessage | InitMessage | OfferMessage | AnswerMessage | CandidateMessage
+type Message = InitMessage | OfferMessage | AnswerMessage | CandidateMessage
 
 function parseMessage(string: string): Message | undefined {
-    const message = JSON.parse(string)
-    if (typeof message !== 'object' || !message || typeof message.type !== 'string') return
+    const mess = JSON.parse(string)
+    if (typeof mess !== 'object' || !mess || typeof mess.type !== 'string') return
 
-    switch (message.type as Message['type']) {
-        case 'id':
-            if (typeof message.data !== 'number') return
-            break
+    switch (mess.type as Message['type']) {
         case 'init':
-            if (!Array.isArray(message.data)) return
+            if (!Array.isArray(mess.data)) return
             break
         case 'offer':
         case 'answer': {
-            if (typeof message.data !== 'string' || typeof message.id !== 'number') return
+            if (typeof mess.data !== 'string' || typeof mess.id !== 'string') return
             break
         }
         case 'candidate': {
-            if (typeof message.data !== 'object' || !message.data || typeof message.id !== 'number')
-                return
+            if (typeof mess.data !== 'object' || !mess.data || typeof mess.id !== 'string') return
             break
         }
     }
-    return message
+    return mess
 }
 
 function handleMessage(hive: HiveState, data: string): void {
-    const message = parseMessage(data)
-    if (!message) return
+    const mess = parseMessage(data)
+    if (!mess) return
 
-    switch (message.type) {
-        case 'id': {
-            hive.id.set(message.data)
-            break
-        }
+    switch (mess.type) {
         case 'init': {
-            for (const peer_id of message.data) {
+            for (const peer_id of mess.data) {
                 const peer = getPeerState(hive.peers, peer_id) || makePeerState(hive, peer_id)
 
                 /*
@@ -311,11 +303,11 @@ function handleMessage(hive: HiveState, data: string): void {
             break
         }
         case 'offer': {
-            const peer = getPeerState(hive.peers, message.id) || makePeerState(hive, message.id)
+            const peer = getPeerState(hive.peers, mess.id) || makePeerState(hive, mess.id)
 
             void peer.conn.setRemoteDescription({
                 type: 'offer',
-                sdp: message.data,
+                sdp: mess.data,
             })
 
             /*
@@ -330,21 +322,21 @@ function handleMessage(hive: HiveState, data: string): void {
                     hive.onMessage({
                         type: 'answer',
                         data: peer.conn.localDescription.sdp,
-                        id: message.id,
+                        id: mess.id,
                     })
                 })
 
             break
         }
         case 'answer': {
-            const peer = getPeerState(hive.peers, message.id)
+            const peer = getPeerState(hive.peers, mess.id)
             if (!peer) return
 
             const prev_remote = peer.conn.remoteDescription
 
             void peer.conn.setRemoteDescription({
                 type: 'answer',
-                sdp: message.data,
+                sdp: mess.data,
             })
 
             /*
@@ -354,73 +346,75 @@ function handleMessage(hive: HiveState, data: string): void {
             if (platform.is_ios && !prev_remote) {
                 hive.onMessage({
                     type: 'init',
-                    data: [hive.id()!],
-                    id: message.id,
+                    data: [hive.id],
+                    id: mess.id,
                 })
             }
 
             break
         }
         case 'candidate': {
-            const peer = getPeerState(hive.peers, message.id)
+            const peer = getPeerState(hive.peers, mess.id)
             if (!peer) return
 
-            void peer.conn.addIceCandidate(message.data)
+            void peer.conn.addIceCandidate(mess.data)
 
             break
         }
     }
 }
 
-function App(props: {stun_urls: string[]}) {
+function App() {
     const ws = new WebSocket('ws://' + location.hostname + ':8080/rtc')
+    void solid.onCleanup(() => ws.close())
+
+    const own_id = randomId()
 
     const message_list = solid.atom<string[]>([])
-    const peer_trigger = solid.atom()
+    const peer_list = solid.atom<PeerState[]>([])
 
-    const hive: HiveState = {
-        id: solid.atom(),
-        peers: [],
-        /*
-        TODO: stun servers can be added later via conn.setConfiguration
-        */
-        rtc_config: {iceServers: METERED_ICE_SERVERS.concat([{urls: props.stun_urls}])},
-        onMessage: message => {
-            ws.send(JSON.stringify(message))
-        },
-        onPeerConnect: peer => {
-            peer.in_channel!.onmessage = event => {
-                message_list().push(peer.id + ' ' + String(event.data))
-                message_list.trigger()
-            }
-            peer_trigger.trigger()
-        },
-        onPeerDisconnect: peer => {
-            for (let i = 0; i < hive.peers.length; i++) {
-                if (hive.peers[i]!.id === peer.id) {
-                    hive.peers.splice(i, 1)
-                    break
-                }
-            }
-            peer_trigger.trigger()
-        },
-    }
-
-    // @ts-ignore
-    window.hive = hive
-
+    let hive_state: HiveState | undefined
     void solid.onCleanup(() => {
-        ws.close()
-        hive.peers.forEach(cleanupPeer)
+        hive_state?.peers.forEach(cleanupPeer)
     })
 
-    ws.onmessage = event => {
-        handleMessage(hive, event.data)
-    }
+    ws.addEventListener('open', () => {
+        ws.send(own_id)
 
-    const peerList = solid.createMemo(() => {
-        void peer_trigger()
-        return hive.peers.filter(p => p.state === 'connected')
+        const hive: HiveState = {
+            id: own_id,
+            peers: [],
+            rtc_config: {iceServers: [...METERED_ICE_SERVERS]},
+            onMessage: message => {
+                ws.send(JSON.stringify(message))
+            },
+            onPeerConnect: peer => {
+                peer.in_channel!.onmessage = event => {
+                    message_list().push(peer.id + ' ' + String(event.data))
+                    message_list.trigger()
+                }
+                peer_list().push(peer)
+                peer_list.trigger()
+            },
+            onPeerDisconnect: peer => {
+                for (let i = 0; i < hive.peers.length; i++) {
+                    if (hive.peers[i]!.id === peer.id) {
+                        hive.peers.splice(i, 1)
+                        break
+                    }
+                }
+                peer_list().splice(peer_list().indexOf(peer), 1)
+                peer_list.trigger()
+            },
+        }
+        hive_state = hive
+
+        // @ts-ignore
+        window.hive = hive
+
+        ws.onmessage = event => {
+            handleMessage(hive, event.data)
+        }
     })
 
     let input!: HTMLInputElement
@@ -433,14 +427,13 @@ function App(props: {stun_urls: string[]}) {
                     left: 0;
                 `}
             >
-                <h4>Own ID: {hive.id()}</h4>
+                <h4>Own ID: {own_id}</h4>
             </div>
             <form
                 onSubmit={e => {
                     e.preventDefault()
                     const value = input.value
-                    hive.peers.forEach(peer => {
-                        if (peer.state !== 'connected') return
+                    peer_list().forEach(peer => {
                         peer.out_channel.send(value)
                     })
                     message_list().push('me ' + value)
@@ -466,7 +459,7 @@ function App(props: {stun_urls: string[]}) {
                 <div>
                     <h4>Peers</h4>
                     <ul>
-                        <solid.For each={peerList()}>{peer => <li>{peer.id}</li>}</solid.For>
+                        <solid.For each={peer_list()}>{peer => <li>{peer.id}</li>}</solid.For>
                     </ul>
                 </div>
             </div>
@@ -474,20 +467,4 @@ function App(props: {stun_urls: string[]}) {
     )
 }
 
-function Root() {
-    const stun_urls$ = solid.resource(async () => {
-        const result = await fetchStunUrls()
-        if (result instanceof Error) throw result
-        return result
-    })
-
-    return (
-        <solid.Suspense>
-            <solid.Show when={stun_urls$()}>
-                {stunUrls => <App stun_urls={stunUrls()} />}
-            </solid.Show>
-        </solid.Suspense>
-    )
-}
-
-export default Root
+export default App

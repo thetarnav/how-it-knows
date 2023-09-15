@@ -1,7 +1,7 @@
-import {defineConfig} from 'vite'
+import * as vite from 'vite'
 import solid from 'vite-plugin-solid'
 
-export default defineConfig({
+export default vite.defineConfig({
     server: {
         port: 3000,
     },
