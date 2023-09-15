@@ -171,23 +171,12 @@ function cleanupPeer(peer: PeerState): void {
     peer.interval = 0
 }
 
-function isChannelOpen(channel: RTCDataChannel | null): boolean {
-    return !!channel && channel.readyState === 'open'
-}
-
-function isPeerConnected(peer: PeerState): boolean {
-    return (
-        peer.state === 'connected' &&
-        isChannelOpen(peer.in_channel) &&
-        isChannelOpen(peer.out_channel)
-    )
-}
-
 function handlePeerChannelOpen(hive: HiveState, peer: PeerState): void {
     if (
         peer.state !== 'connecting' ||
-        !isChannelOpen(peer.in_channel) ||
-        !isChannelOpen(peer.out_channel)
+        !peer.in_channel ||
+        peer.in_channel.readyState !== 'open' ||
+        peer.out_channel.readyState !== 'open'
     )
         return
 
@@ -431,7 +420,7 @@ function App(props: {stun_urls: string[]}) {
 
     const peerList = solid.createMemo(() => {
         void peer_trigger()
-        return hive.peers.filter(isPeerConnected)
+        return hive.peers.filter(p => p.state === 'connected')
     })
 
     let input!: HTMLInputElement
