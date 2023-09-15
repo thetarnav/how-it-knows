@@ -95,10 +95,11 @@ func rtcConnection(w http.ResponseWriter, r *http.Request) {
 	/*
 		New peer connection!
 	*/
-	fmt.Println("New peer connection", len(peerConnections)+1)
 
 	id := lastId + 1
 	lastId = id
+
+	fmt.Println("New peer connection", id, "(len:", len(peerConnections)+1, ")")
 
 	peer := &PeerConnection{Id: id, Ws: conn}
 

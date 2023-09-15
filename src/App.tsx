@@ -84,6 +84,7 @@ interface PeerState {
     state: 'connecting' | 'connected' | 'disconnected'
     in_channel: RTCDataChannel | null
     out_channel: RTCDataChannel
+    interval: number
 }
 
 onerror = (_, source, lineno, colno, error) =>
@@ -96,9 +97,13 @@ function makePeerState(hive: HiveState, id: number): PeerState {
         state: 'connecting',
         in_channel: null,
         out_channel: null!,
+        interval: 0,
     }
     hive.peers.push(peer)
 
+    /*
+        Peer connection
+    */
     const conn = new RTCPeerConnection(hive.rtc_config)
     peer.conn = conn
 
@@ -128,6 +133,9 @@ function makePeerState(hive: HiveState, id: number): PeerState {
         })
     }
 
+    /*
+        Data channel
+    */
     const out_channel = peer.conn.createDataChannel('data')
     peer.out_channel = out_channel
 
@@ -138,7 +146,32 @@ function makePeerState(hive: HiveState, id: number): PeerState {
         handlePeerChannelClose(hive, peer)
     })
 
+    /*
+        Check if the channel is open
+    */
+    peer.interval = setInterval(() => {
+        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
+        switch (out_channel.readyState) {
+            case 'open':
+                handlePeerChannelOpen(hive, peer)
+                break
+            case 'closed':
+                handlePeerChannelClose(hive, peer)
+                break
+        }
+    }, 500)
+
     return peer
+}
+
+function cleanupPeer(peer: PeerState): void {
+    peer.state = 'disconnected'
+    peer.conn.close()
+    peer.in_channel?.close()
+    peer.in_channel = null
+    peer.out_channel.close()
+    clearInterval(peer.interval)
+    peer.interval = 0
 }
 
 function handlePeerChannelOpen(hive: HiveState, peer: PeerState): void {
@@ -151,6 +184,8 @@ function handlePeerChannelOpen(hive: HiveState, peer: PeerState): void {
         return
 
     peer.state = 'connected'
+    clearInterval(peer.interval)
+    peer.interval = 0
     hive.onPeerConnect(peer)
 }
 
@@ -158,14 +193,6 @@ function handlePeerChannelClose(hive: HiveState, peer: PeerState): void {
     if (peer.state === 'disconnected') return
     cleanupPeer(peer)
     hive.onPeerDisconnect(peer)
-}
-
-function cleanupPeer(peer: PeerState): void {
-    peer.state = 'disconnected'
-    peer.conn.close()
-    peer.in_channel?.close()
-    peer.in_channel = null
-    peer.out_channel.close()
 }
 
 function getPeerState(conns: readonly PeerState[], id: number): PeerState | undefined {
@@ -265,7 +292,7 @@ function handleMessage(hive: HiveState, data: string): void {
         }
         case 'init': {
             for (const peer_id of message.data) {
-                const peer = makePeerState(hive, peer_id)
+                const peer = getPeerState(hive.peers, peer_id) || makePeerState(hive, peer_id)
 
                 /*
                     Offer
@@ -287,7 +314,7 @@ function handleMessage(hive: HiveState, data: string): void {
             break
         }
         case 'offer': {
-            const peer = makePeerState(hive, message.id)
+            const peer = getPeerState(hive.peers, message.id) || makePeerState(hive, message.id)
 
             void peer.conn.setRemoteDescription({
                 type: 'offer',
@@ -316,10 +343,20 @@ function handleMessage(hive: HiveState, data: string): void {
             const peer = getPeerState(hive.peers, message.id)
             if (!peer) return
 
+            const prev_remote = peer.conn.remoteDescription
+
             void peer.conn.setRemoteDescription({
                 type: 'answer',
                 sdp: message.data,
             })
+
+            if (!prev_remote) {
+                hive.onMessage({
+                    type: 'init',
+                    data: [hive.id()!],
+                    id: message.id,
+                })
+            }
 
             break
         }
@@ -343,6 +380,9 @@ function App(props: {stun_urls: string[]}) {
     const hive: HiveState = {
         id: solid.atom(),
         peers: [],
+        /*
+        TODO: stun servers can be added later via conn.setConfiguration
+        */
         rtc_config: {iceServers: METERED_ICE_SERVERS.concat([{urls: props.stun_urls}])},
         onMessage: message => {
             ws.send(JSON.stringify(message))
