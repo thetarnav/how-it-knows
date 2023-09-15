@@ -9,6 +9,9 @@
         "preview": "vite preview"
     },
     "dependencies": {
+        "@nothing-but/dom": "^0.1.1",
+        "@nothing-but/platform": "^0.0.0",
+        "@nothing-but/utils": "^0.9.0",
         "solid-js": "^1.7.11"
     },
     "devDependencies": {

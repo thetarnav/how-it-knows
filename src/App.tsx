@@ -1,22 +1,42 @@
+import {Arr, Misc} from '@nothing-but/utils'
 import './App.css'
 import * as solid from './atom.ts'
 
-const toError = (e: unknown): Error =>
-    e instanceof Error ? e : new Error('unknown error ' + String(e))
+function getMeteredIceServers(): readonly RTCIceServer[] {
+    const ice_servers: RTCIceServer[] = [{urls: 'stun:stun.relay.metered.ca:80'}]
 
-const arrayMapNonNullable = <T, U>(array: T[], fn: (item: T) => U): NonNullable<U>[] => {
-    const result: NonNullable<U>[] = Array(array.length)
-    let i = 0
-    for (const item of array) {
-        const mapped = fn(item)
-        if (mapped != null) {
-            result[i] = mapped
-            i += 1
-        }
+    const username = import.meta.env.VITE_METERED_USERNAME
+    const credential = import.meta.env.VITE_METERED_CREDENTIAL
+
+    if (credential && username) {
+        void ice_servers.push.apply(ice_servers, [
+            {
+                urls: 'turn:a.relay.metered.ca:80',
+                username,
+                credential,
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                username,
+                credential,
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:443',
+                username,
+                credential,
+            },
+            {
+                urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+                username,
+                credential,
+            },
+        ])
     }
-    result.length = i
-    return result
+
+    return ice_servers
 }
+
+const METERED_ICE_SERVERS = getMeteredIceServers()
 
 const fetchStunUrls = async (): Promise<string[] | Error> => {
     try {
@@ -25,12 +45,12 @@ const fetchStunUrls = async (): Promise<string[] | Error> => {
         )
         const text = await response.text()
 
-        return arrayMapNonNullable(text.split('\n'), line => {
+        return Arr.map_non_nullable(text.split('\n'), line => {
             if (line.length === 0) return null
             return `stun:${line}`
         })
     } catch (e) {
-        return toError(e)
+        return Misc.toError(e)
     }
 }
 
@@ -65,6 +85,9 @@ interface PeerState {
     in_channel: RTCDataChannel | null
     out_channel: RTCDataChannel
 }
+
+onerror = (_, source, lineno, colno, error) =>
+    alert(`Error: ${error && error.message}\nSource: ${source}\nLine: ${lineno}\nColumn: ${colno}`)
 
 function makePeerState(hive: HiveState, id: number): PeerState {
     const peer: PeerState = {
@@ -320,7 +343,7 @@ function App(props: {stun_urls: string[]}) {
     const hive: HiveState = {
         id: solid.atom(),
         peers: [],
-        rtc_config: {iceServers: [{urls: props.stun_urls}]},
+        rtc_config: {iceServers: METERED_ICE_SERVERS.concat([{urls: props.stun_urls}])},
         onMessage: message => {
             ws.send(JSON.stringify(message))
         },
