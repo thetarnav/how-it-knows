@@ -401,15 +401,12 @@ interface PeerMessagePost {
     data: PostMessage
 }
 
-interface PeerMessageStoredPostIds {
-    type: 'stored_post_ids'
+interface PeerMessageRequestPosts {
+    type: 'request_posts' | 'stored_posts'
     data: string[]
 }
 
-/*
-TODO add require posts mgs
-*/
-type PeerMessage = PeerMessagePost | PeerMessageStoredPostIds
+type PeerMessage = PeerMessagePost | PeerMessageRequestPosts
 
 function makePostMessage(author: string, content: string): PostMessage {
     return {
@@ -461,7 +458,8 @@ function parsePeerMessage(string: string): PeerMessage | undefined {
             if (isPostMessage(mess.data)) return mess
             break
         }
-        case 'stored_post_ids': {
+        case 'request_posts':
+        case 'stored_posts': {
             if (Array.isArray(mess.data)) return mess
             break
         }
@@ -501,28 +499,56 @@ function App() {
 
                 switch (msg.type) {
                     case 'post': {
-                        solid.mutate(messages$, list => list.push(msg.data))
+                        const own_messages = messages$()
+                        for (const message of own_messages) {
+                            if (message.id === msg.data.id) return
+                        }
+                        own_messages.push(msg.data)
+                        messages$.trigger()
+                        storePostMessage(msg.data)
                         break
                     }
-                    case 'stored_post_ids': {
+                    case 'stored_posts': {
                         const stored_ids = new Set(msg.data)
                         const own_messages = messages$()
 
                         for (const message of own_messages) {
-                            if (stored_ids.has(message.id)) continue
+                            if (stored_ids.has(message.id)) {
+                                stored_ids.delete(message.id)
+                                continue
+                            }
                             peerSendMessage(peer, {
                                 type: 'post',
                                 data: message,
                             })
                         }
 
+                        if (stored_ids.size > 0) {
+                            peerSendMessage(peer, {
+                                type: 'request_posts',
+                                data: Array.from(stored_ids),
+                            })
+                        }
+
                         break
+                    }
+                    case 'request_posts': {
+                        const stored_ids = new Set(msg.data)
+                        const own_messages = messages$()
+
+                        for (const message of own_messages) {
+                            if (!stored_ids.has(message.id)) continue
+                            peerSendMessage(peer, {
+                                type: 'post',
+                                data: message,
+                            })
+                        }
                     }
                 }
             }
 
             peerSendMessage(peer, {
-                type: 'stored_post_ids',
+                type: 'stored_posts',
                 data: messages$().map(m => m.id),
             })
         },
@@ -575,6 +601,19 @@ function App() {
             >
                 <h4>Own ID: {own_id}</h4>
             </div>
+            <button
+                style={`
+                    position: absolute;
+                    top: 5px;
+                    right: 5px;
+                `}
+                onClick={() => {
+                    localStorage.clear()
+                    messages$.set([])
+                }}
+            >
+                Clear messages
+            </button>
             <form
                 onSubmit={e => {
                     e.preventDefault()
@@ -603,6 +642,8 @@ function App() {
                                         flex-direction: column;
                                         justify-content: flex-start;
                                         align-items: flex-start;
+                                        padding: 5px;
+                                        border: 1px solid #ccc;
                                     `}
                                 >
                                     <span
@@ -613,7 +654,6 @@ function App() {
                                     >
                                         {item.author} | {formatTimestamp(item.timestamp)}
                                     </span>
-                                    <br />
                                     {item.content}
                                 </li>
                             )}
