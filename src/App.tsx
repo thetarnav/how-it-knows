@@ -11,6 +11,13 @@ function randomId(): string {
     return id
 }
 
+function formatTimestamp(timestamp: number): string {
+    const date = new Date(timestamp)
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    return `${hours}:${minutes}`
+}
+
 function getMeteredIceServers(): RTCIceServer[] {
     const ice_servers: RTCIceServer[] = [{urls: 'stun:stun.relay.metered.ca:80'}]
 
@@ -279,12 +286,12 @@ function parseMessage(string: string): Message | undefined {
 }
 
 function handleMessage(hive: HiveState, data: string): void {
-    const mess = parseMessage(data)
-    if (!mess) return
+    const msg = parseMessage(data)
+    if (!msg) return
 
-    switch (mess.type) {
+    switch (msg.type) {
         case 'init': {
-            for (const peer_id of mess.data) {
+            for (const peer_id of msg.data) {
                 /*
                     Duplicated ids will happen if multiple tabs are open
                 */
@@ -312,11 +319,11 @@ function handleMessage(hive: HiveState, data: string): void {
             break
         }
         case 'offer': {
-            const peer = getPeerState(hive.peers, mess.id) || makePeerState(hive, mess.id)
+            const peer = getPeerState(hive.peers, msg.id) || makePeerState(hive, msg.id)
 
             void peer.conn.setRemoteDescription({
                 type: 'offer',
-                sdp: mess.data,
+                sdp: msg.data,
             })
 
             /*
@@ -331,21 +338,21 @@ function handleMessage(hive: HiveState, data: string): void {
                     hive.onMessage({
                         type: 'answer',
                         data: peer.conn.localDescription.sdp,
-                        id: mess.id,
+                        id: msg.id,
                     })
                 })
 
             break
         }
         case 'answer': {
-            const peer = getPeerState(hive.peers, mess.id)
+            const peer = getPeerState(hive.peers, msg.id)
             if (!peer) return
 
             const prev_remote = peer.conn.remoteDescription
 
             void peer.conn.setRemoteDescription({
                 type: 'answer',
-                sdp: mess.data,
+                sdp: msg.data,
             })
 
             /*
@@ -356,17 +363,17 @@ function handleMessage(hive: HiveState, data: string): void {
                 hive.onMessage({
                     type: 'init',
                     data: [hive.id],
-                    id: mess.id,
+                    id: msg.id,
                 })
             }
 
             break
         }
         case 'candidate': {
-            const peer = getPeerState(hive.peers, mess.id)
+            const peer = getPeerState(hive.peers, msg.id)
             if (!peer) return
 
-            void peer.conn.addIceCandidate(mess.data)
+            void peer.conn.addIceCandidate(msg.data)
 
             break
         }
@@ -389,6 +396,21 @@ interface PostMessage {
     timestamp: number
 }
 
+interface PeerMessagePost {
+    type: 'post'
+    data: PostMessage
+}
+
+interface PeerMessageStoredPostIds {
+    type: 'stored_post_ids'
+    data: string[]
+}
+
+/*
+TODO add require posts mgs
+*/
+type PeerMessage = PeerMessagePost | PeerMessageStoredPostIds
+
 function makePostMessage(author: string, content: string): PostMessage {
     return {
         id: randomId(),
@@ -398,8 +420,8 @@ function makePostMessage(author: string, content: string): PostMessage {
     }
 }
 
-function storePostMessage(message: PostMessage): void {
-    localStorage.setItem('post:' + message.id, JSON.stringify(message))
+function storePostMessage(msg: PostMessage): void {
+    localStorage.setItem('post:' + msg.id, JSON.stringify(msg))
 }
 
 function isPostMessage(v: any): v is PostMessage {
@@ -430,7 +452,24 @@ function getAllPostMessages(): PostMessage[] {
     return messages
 }
 
-function sendPostMessage(peer: PeerState, post: PostMessage): void {
+function parsePeerMessage(string: string): PeerMessage | undefined {
+    const mess = JSON.parse(string) as any
+    if (typeof mess !== 'object' || !mess || typeof mess.type !== 'string') return
+
+    switch (mess.type as PeerMessage['type']) {
+        case 'post': {
+            if (isPostMessage(mess.data)) return mess
+            break
+        }
+        case 'stored_post_ids': {
+            if (Array.isArray(mess.data)) return mess
+            break
+        }
+    }
+    return
+}
+
+function peerSendMessage(peer: PeerState, post: PeerMessage): void {
     if (peer.out_channel.readyState !== 'open') return
     const data = JSON.stringify(post)
     peer.out_channel.send(data)
@@ -454,12 +493,38 @@ function App() {
             ws.send(JSON.stringify(message))
         },
         onPeerConnect: peer => {
-            peer.in_channel!.onmessage = (event: MessageEvent<string>) => {
-                const post = JSON.parse(event.data)
-                if (!isPostMessage(post)) return
-                solid.mutate(messages$, list => list.push(post))
-            }
             solid.mutate(peers$, list => list.push(peer))
+
+            peer.in_channel!.onmessage = (event: MessageEvent<string>) => {
+                const msg = parsePeerMessage(event.data)
+                if (!msg) return
+
+                switch (msg.type) {
+                    case 'post': {
+                        solid.mutate(messages$, list => list.push(msg.data))
+                        break
+                    }
+                    case 'stored_post_ids': {
+                        const stored_ids = new Set(msg.data)
+                        const own_messages = messages$()
+
+                        for (const message of own_messages) {
+                            if (stored_ids.has(message.id)) continue
+                            peerSendMessage(peer, {
+                                type: 'post',
+                                data: message,
+                            })
+                        }
+
+                        break
+                    }
+                }
+            }
+
+            peerSendMessage(peer, {
+                type: 'stored_post_ids',
+                data: messages$().map(m => m.id),
+            })
         },
         onPeerDisconnect: peer => {
             for (let i = 0; i < hive.peers.length; i++) {
@@ -488,7 +553,12 @@ function App() {
 
     function submitMessage(content: string) {
         const post = makePostMessage(own_id, content)
-        hive.peers.forEach(peer => sendPostMessage(peer, post))
+        for (const peer of hive.peers) {
+            peerSendMessage(peer, {
+                type: 'post',
+                data: post,
+            })
+        }
         solid.mutate(messages$, list => list.push(post))
         storePostMessage(post)
     }
@@ -526,14 +596,22 @@ function App() {
                     <ul>
                         <solid.For each={messages$()}>
                             {item => (
-                                <li>
+                                <li
+                                    style={`
+                                        margin-bottom: 10px;
+                                        display: flex;
+                                        flex-direction: column;
+                                        justify-content: flex-start;
+                                        align-items: flex-start;
+                                    `}
+                                >
                                     <span
                                         style={`
                                             font-size: 0.7em;
                                             color: #888;
                                         `}
                                     >
-                                        {item.author}
+                                        {item.author} | {formatTimestamp(item.timestamp)}
                                     </span>
                                     <br />
                                     {item.content}
