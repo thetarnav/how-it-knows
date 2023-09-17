@@ -22,6 +22,9 @@ devDependencies:
   '@nothing-but/eslint-plugin':
     specifier: ^0.0.2
     version: 0.0.2(eslint@8.49.0)(typescript@5.2.2)
+  '@total-typescript/ts-reset':
+    specifier: ^0.5.1
+    version: 0.5.1
   '@types/node':
     specifier: ^20.6.1
     version: 20.6.1
@@ -723,6 +726,10 @@ packages:
   /@nothing-but/utils@0.9.0:
     resolution: {integrity: sha512-lvJQ7yb+HWxPqYWQAT0qekDxBVD7tmEOHCIGaEZJAGmnPqBAw/T7V6I5H5lRv2Cn+AfBggOYRwqDIGpYqu7zRA==}
     dev: false
+
+  /@total-typescript/ts-reset@0.5.1:
+    resolution: {integrity: sha512-AqlrT8YA1o7Ff5wPfMOL0pvL+1X+sw60NN6CcOCqs658emD6RfiXhF7Gu9QcfKBH7ELY2nInLhKSCWVoNL70MQ==}
+    dev: true
 
   /@types/babel__core@7.20.1:
     resolution: {integrity: sha512-aACu/U/omhdk15O4Nfb+fHgH/z3QsfQzpnvRZhYhThms83ZnAOZz7zZAWO7mn2yyNQaA4xTO8GLK3uqFU4bYYw==}
