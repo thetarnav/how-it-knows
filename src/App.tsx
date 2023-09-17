@@ -11,7 +11,7 @@ function randomId(): string {
     return id
 }
 
-function getMeteredIceServers(): readonly RTCIceServer[] {
+function getMeteredIceServers(): RTCIceServer[] {
     const ice_servers: RTCIceServer[] = [{urls: 'stun:stun.relay.metered.ca:80'}]
 
     const username = import.meta.env.VITE_METERED_USERNAME
@@ -46,6 +46,7 @@ function getMeteredIceServers(): readonly RTCIceServer[] {
 }
 
 const METERED_ICE_SERVERS = getMeteredIceServers()
+const RTC_CONFIG: RTCConfiguration = {iceServers: METERED_ICE_SERVERS}
 
 // const fetchStunUrls = async (): Promise<string[] | Error> => {
 //     try {
@@ -81,7 +82,6 @@ so one peer will create an offer, and send it to ws
 interface HiveState {
     id: string
     peers: PeerState[]
-    rtc_config: RTCConfiguration
     onMessage: (message: Message) => void
     onPeerConnect: (peer: PeerState) => void
     onPeerDisconnect: (peer: PeerState) => void
@@ -113,7 +113,7 @@ function makePeerState(hive: HiveState, id: string): PeerState {
     /*
         Peer connection
     */
-    const conn = new RTCPeerConnection(hive.rtc_config)
+    const conn = new RTCPeerConnection(RTC_CONFIG)
     peer.conn = conn
 
     conn.onicecandidate = event => {
@@ -216,7 +216,7 @@ interface BaseMessage {
  * Initiate a peer connection.
  * This will create an offer and send it to the server.
  */
-interface InitMessage extends BaseMessage {
+interface InitNegotiationMessage extends BaseMessage {
     type: 'init'
     data: string[] // ids of peers to connect to
 }
@@ -225,7 +225,7 @@ interface InitMessage extends BaseMessage {
  * You got an offer from a peer.
  * Set the remote description, create an answer, and send it back to the peer.
  */
-interface OfferMessage extends BaseMessage {
+interface OfferNegotiationMessage extends BaseMessage {
     type: 'offer'
     data: string
     id: string
@@ -235,7 +235,7 @@ interface OfferMessage extends BaseMessage {
  * You got an offer answer from a peer.
  * Set the remote description.
  */
-interface AnswerMessage extends BaseMessage {
+interface AnswerNegotiationMessage extends BaseMessage {
     type: 'answer'
     data: string
     id: string
@@ -245,16 +245,20 @@ interface AnswerMessage extends BaseMessage {
  * You got an ice candidate from a peer.
  * Add the ice candidate.
  */
-interface CandidateMessage extends BaseMessage {
+interface CandidateNegotiationMessage extends BaseMessage {
     type: 'candidate'
     data: RTCIceCandidateInit
     id: string
 }
 
-type Message = InitMessage | OfferMessage | AnswerMessage | CandidateMessage
+type Message =
+    | InitNegotiationMessage
+    | OfferNegotiationMessage
+    | AnswerNegotiationMessage
+    | CandidateNegotiationMessage
 
 function parseMessage(string: string): Message | undefined {
-    const mess = JSON.parse(string)
+    const mess = JSON.parse(string) as any
     if (typeof mess !== 'object' || !mess || typeof mess.type !== 'string') return
 
     switch (mess.type as Message['type']) {
@@ -281,6 +285,11 @@ function handleMessage(hive: HiveState, data: string): void {
     switch (mess.type) {
         case 'init': {
             for (const peer_id of mess.data) {
+                /*
+                    Duplicated ids will happen if multiple tabs are open
+                */
+                if (peer_id === hive.id) continue
+
                 const peer = getPeerState(hive.peers, peer_id) || makePeerState(hive, peer_id)
 
                 /*
@@ -364,58 +373,125 @@ function handleMessage(hive: HiveState, data: string): void {
     }
 }
 
+interface PostMessage {
+    /**
+     * Post id.
+     */
+    id: string
+    /**
+     * Post author id.
+     */
+    author: string
+    content: string
+    /**
+     * When the post was created.
+     */
+    timestamp: number
+}
+
+function makePostMessage(author: string, content: string): PostMessage {
+    return {
+        id: randomId(),
+        author,
+        content,
+        timestamp: Date.now(),
+    }
+}
+
+function storePostMessage(message: PostMessage): void {
+    localStorage.setItem('post:' + message.id, JSON.stringify(message))
+}
+
+function isPostMessage(v: any): v is PostMessage {
+    return (
+        v &&
+        typeof v === 'object' &&
+        typeof v.id === 'string' &&
+        typeof v.author === 'string' &&
+        typeof v.content === 'string' &&
+        typeof v.timestamp === 'number'
+    )
+}
+
+function getAllPostMessages(): PostMessage[] {
+    const messages: PostMessage[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (!key || !key.startsWith('post:')) continue
+
+        const value = localStorage.getItem(key)
+        if (!value) continue
+
+        const message = JSON.parse(value)
+        if (!isPostMessage(message)) continue
+
+        messages.push(message)
+    }
+    return messages
+}
+
+function sendPostMessage(peer: PeerState, post: PostMessage): void {
+    if (peer.out_channel.readyState !== 'open') return
+    const data = JSON.stringify(post)
+    peer.out_channel.send(data)
+}
+
 function App() {
     const ws = new WebSocket('ws://' + location.hostname + ':8080/rtc')
     void solid.onCleanup(() => ws.close())
 
-    const own_id = randomId()
+    const own_id = localStorage.getItem('id') || randomId()
+    localStorage.setItem('id', own_id)
 
-    const message_list = solid.atom<string[]>([])
-    const peer_list = solid.atom<PeerState[]>([])
+    const init_messages = getAllPostMessages()
+    const messages$ = solid.atom(init_messages)
+    const peers$ = solid.atom<PeerState[]>([])
 
-    let hive_state: HiveState | undefined
+    const hive: HiveState = {
+        id: own_id,
+        peers: [],
+        onMessage: message => {
+            ws.send(JSON.stringify(message))
+        },
+        onPeerConnect: peer => {
+            peer.in_channel!.onmessage = (event: MessageEvent<string>) => {
+                const post = JSON.parse(event.data)
+                if (!isPostMessage(post)) return
+                solid.mutate(messages$, list => list.push(post))
+            }
+            solid.mutate(peers$, list => list.push(peer))
+        },
+        onPeerDisconnect: peer => {
+            for (let i = 0; i < hive.peers.length; i++) {
+                if (hive.peers[i]!.id === peer.id) {
+                    hive.peers.splice(i, 1)
+                    break
+                }
+            }
+            solid.mutate(peers$, list => list.splice(list.indexOf(peer), 1))
+        },
+    }
+    // @ts-ignore
+    window.hive = hive
+
     void solid.onCleanup(() => {
-        hive_state?.peers.forEach(cleanupPeer)
+        hive.peers.forEach(cleanupPeer)
     })
 
     ws.addEventListener('open', () => {
         ws.send(own_id)
 
-        const hive: HiveState = {
-            id: own_id,
-            peers: [],
-            rtc_config: {iceServers: [...METERED_ICE_SERVERS]},
-            onMessage: message => {
-                ws.send(JSON.stringify(message))
-            },
-            onPeerConnect: peer => {
-                peer.in_channel!.onmessage = event => {
-                    message_list().push(peer.id + ' ' + String(event.data))
-                    message_list.trigger()
-                }
-                peer_list().push(peer)
-                peer_list.trigger()
-            },
-            onPeerDisconnect: peer => {
-                for (let i = 0; i < hive.peers.length; i++) {
-                    if (hive.peers[i]!.id === peer.id) {
-                        hive.peers.splice(i, 1)
-                        break
-                    }
-                }
-                peer_list().splice(peer_list().indexOf(peer), 1)
-                peer_list.trigger()
-            },
-        }
-        hive_state = hive
-
-        // @ts-ignore
-        window.hive = hive
-
         ws.onmessage = event => {
             handleMessage(hive, event.data)
         }
     })
+
+    function submitMessage(content: string) {
+        const post = makePostMessage(own_id, content)
+        hive.peers.forEach(peer => sendPostMessage(peer, post))
+        solid.mutate(messages$, list => list.push(post))
+        storePostMessage(post)
+    }
 
     let input!: HTMLInputElement
     return (
@@ -432,12 +508,7 @@ function App() {
             <form
                 onSubmit={e => {
                     e.preventDefault()
-                    const value = input.value
-                    peer_list().forEach(peer => {
-                        peer.out_channel.send(value)
-                    })
-                    message_list().push('me ' + value)
-                    message_list.trigger()
+                    submitMessage(input.value)
                     input.value = ''
                 }}
             >
@@ -453,13 +524,39 @@ function App() {
                 <div>
                     <h4>Messages</h4>
                     <ul>
-                        <solid.For each={message_list()}>{item => <li>{item}</li>}</solid.For>
+                        <solid.For each={messages$()}>
+                            {item => (
+                                <li>
+                                    <span
+                                        style={`
+                                            font-size: 0.7em;
+                                            color: #888;
+                                        `}
+                                    >
+                                        {item.author}
+                                    </span>
+                                    <br />
+                                    {item.content}
+                                </li>
+                            )}
+                        </solid.For>
                     </ul>
                 </div>
                 <div>
                     <h4>Peers</h4>
                     <ul>
-                        <solid.For each={peer_list()}>{peer => <li>{peer.id}</li>}</solid.For>
+                        <solid.For each={peers$()}>
+                            {peer => (
+                                <li
+                                    style={`
+                                        font-size: 0.7em;
+                                        color: #888;
+                                    `}
+                                >
+                                    {peer.id}
+                                </li>
+                            )}
+                        </solid.For>
                     </ul>
                 </div>
             </div>

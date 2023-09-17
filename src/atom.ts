@@ -4,7 +4,6 @@ export * from 'solid-js'
 
 export type Atom<T> = solid.Accessor<T> & {
     get value(): T
-    peak(): T
     set(value: T): T
     update: solid.Setter<T>
     trigger(): void
@@ -27,14 +26,16 @@ export function atom<T>(initialValue: T, options?: solid.SignalOptions<T>): Atom
     atom.update = setter
     atom.trigger = () => {
         mutating = true
-        setter(p => p)
+        void setter(p => p)
     }
     atom.set = value => setter(() => value)
-    atom.peak = () => solid.untrack(atom)
 
-    Object.defineProperty(atom, 'value', { get: atom })
+    return Object.defineProperty(atom, 'value', {get: atom})
+}
 
-    return atom
+export function mutate<T>(atom: Atom<T>, mutator: (value: T) => void): void {
+    mutator(solid.untrack(atom))
+    atom.trigger()
 }
 
 export const resource: {
@@ -61,6 +62,5 @@ export const resource: {
     ): solid.Resource<T> & solid.ResourceActions<T | undefined, R>
 } = (...args: [any]) => {
     const [data, actions] = solid.createResource(...args)
-    Object.assign(data, actions)
-    return data as any
+    return Object.assign(data, actions) as any
 }
