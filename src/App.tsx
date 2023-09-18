@@ -1,5 +1,4 @@
-import './App.css'
-import {platform, solid} from './lib.ts'
+import {platform, set, solid} from './lib.ts'
 
 function randomId(): string {
     const time = new Date().getTime().toString(36).padStart(8, '0').substring(0, 8)
@@ -89,7 +88,8 @@ so one peer will create an offer, and send it to ws
 interface HiveState {
     id: string
     peers: PeerState[]
-    onMessage: (message: Message) => void
+    onWsMessage: (message: Message) => void
+    onPeerMessage: (peer: PeerState, message: string) => void
     onPeerConnect: (peer: PeerState) => void
     onPeerDisconnect: (peer: PeerState) => void
 }
@@ -126,7 +126,7 @@ function makePeerState(hive: HiveState, id: string): PeerState {
     conn.onicecandidate = event => {
         if (!event.candidate) return
 
-        hive.onMessage({
+        hive.onWsMessage({
             type: 'candidate',
             data: event.candidate.toJSON(),
             id,
@@ -142,7 +142,14 @@ function makePeerState(hive: HiveState, id: string): PeerState {
     conn.ondatachannel = event => {
         peer.in_channel = event.channel
 
-        handlePeerChannelOpen(hive, peer)
+        peer.in_channel.addEventListener('message', event => {
+            if (peer.state === 'connecting') {
+                peer.state = 'connected'
+                hive.onPeerConnect(peer)
+            }
+
+            hive.onPeerMessage(peer, event.data)
+        })
 
         peer.in_channel.addEventListener('close', () => {
             handlePeerChannelClose(hive, peer)
@@ -156,7 +163,7 @@ function makePeerState(hive: HiveState, id: string): PeerState {
     peer.out_channel = out_channel
 
     out_channel.onopen = () => {
-        handlePeerChannelOpen(hive, peer)
+        handlePeerChannelOpen(peer)
     }
     out_channel.addEventListener('close', () => {
         handlePeerChannelClose(hive, peer)
@@ -169,7 +176,7 @@ function makePeerState(hive: HiveState, id: string): PeerState {
     */
     if (platform.is_ios) {
         peer.interval = setInterval(() => {
-            handlePeerChannelOpen(hive, peer)
+            handlePeerChannelOpen(peer)
         }, 500)
     }
 
@@ -186,7 +193,7 @@ function cleanupPeer(peer: PeerState): void {
     peer.interval = 0
 }
 
-function handlePeerChannelOpen(hive: HiveState, peer: PeerState): void {
+function handlePeerChannelOpen(peer: PeerState): void {
     if (
         peer.state !== 'connecting' ||
         !peer.in_channel ||
@@ -195,10 +202,13 @@ function handlePeerChannelOpen(hive: HiveState, peer: PeerState): void {
     )
         return
 
-    peer.state = 'connected'
+    /*
+        Ready message is only for notifying that the data channel is open
+    */
+    peer.out_channel.send('"READY"')
+
     clearInterval(peer.interval)
     peer.interval = 0
-    hive.onPeerConnect(peer)
 }
 
 function handlePeerChannelClose(hive: HiveState, peer: PeerState): void {
@@ -308,7 +318,7 @@ function handleMessage(hive: HiveState, data: string): void {
                     .then(() => {
                         if (!peer.conn.localDescription) return
 
-                        hive.onMessage({
+                        hive.onWsMessage({
                             type: 'offer',
                             data: peer.conn.localDescription.sdp,
                             id: peer_id,
@@ -335,7 +345,7 @@ function handleMessage(hive: HiveState, data: string): void {
                 .then(() => {
                     if (!peer.conn.localDescription) return
 
-                    hive.onMessage({
+                    hive.onWsMessage({
                         type: 'answer',
                         data: peer.conn.localDescription.sdp,
                         id: msg.id,
@@ -360,7 +370,7 @@ function handleMessage(hive: HiveState, data: string): void {
                 https://github.com/webrtc/samples/issues/1123#issuecomment-454325354
             */
             if (platform.is_ios && !prev_remote) {
-                hive.onMessage({
+                hive.onWsMessage({
                     type: 'init',
                     data: [hive.id],
                     id: msg.id,
@@ -396,9 +406,9 @@ interface PostMessage {
     timestamp: number
 }
 
-interface PeerMessagePost {
-    type: 'post'
-    data: PostMessage
+interface PeerMessagePosts {
+    type: 'posts'
+    data: PostMessage[]
 }
 
 interface PeerMessageRequestPosts {
@@ -406,7 +416,7 @@ interface PeerMessageRequestPosts {
     data: string[]
 }
 
-type PeerMessage = PeerMessagePost | PeerMessageRequestPosts
+type PeerMessage = PeerMessagePosts | PeerMessageRequestPosts
 
 function makePostMessage(author: string, content: string): PostMessage {
     return {
@@ -419,6 +429,11 @@ function makePostMessage(author: string, content: string): PostMessage {
 
 function storePostMessage(msg: PostMessage): void {
     localStorage.setItem('post:' + msg.id, JSON.stringify(msg))
+}
+function storePostMessages(msgs: PostMessage[]): void {
+    for (const msg of msgs) {
+        storePostMessage(msg)
+    }
 }
 
 function isPostMessage(v: any): v is PostMessage {
@@ -454,9 +469,10 @@ function parsePeerMessage(string: string): PeerMessage | undefined {
     if (typeof mess !== 'object' || !mess || typeof mess.type !== 'string') return
 
     switch (mess.type as PeerMessage['type']) {
-        case 'post': {
-            if (isPostMessage(mess.data)) return mess
-            break
+        case 'posts': {
+            if (!Array.isArray(mess.data)) return
+            mess.data = mess.data.filter(isPostMessage)
+            return mess
         }
         case 'request_posts':
         case 'stored_posts': {
@@ -473,6 +489,44 @@ function peerSendMessage(peer: PeerState, post: PeerMessage): void {
     peer.out_channel.send(data)
 }
 
+function handlePeerMessage(
+    peer: PeerState,
+    msg: PeerMessage,
+    own_posts: PostMessage[],
+    updatePosts: (posts: PostMessage[]) => void,
+): void {
+    switch (msg.type) {
+        case 'posts': {
+            const own_post_ids = new Set(own_posts.map(m => m.id))
+            const new_posts = msg.data.filter(m => !own_post_ids.has(m.id))
+            updatePosts(own_posts.concat(new_posts))
+            break
+        }
+        case 'stored_posts': {
+            const peer_post_ids = new Set(msg.data)
+            const own_post_ids = new Set(own_posts.map(m => m.id))
+
+            const missing_post_ids = set.difference(peer_post_ids, own_post_ids)
+            if (missing_post_ids.size === 0) break
+
+            peerSendMessage(peer, {
+                type: 'request_posts',
+                data: Array.from(missing_post_ids),
+            })
+
+            break
+        }
+        case 'request_posts': {
+            const ids = new Set(msg.data)
+
+            peerSendMessage(peer, {
+                type: 'posts',
+                data: own_posts.filter(post => ids.has(post.id)),
+            })
+        }
+    }
+}
+
 function App() {
     const ws = new WebSocket('ws://' + location.hostname + ':8080/rtc')
     void solid.onCleanup(() => ws.close())
@@ -481,75 +535,36 @@ function App() {
     localStorage.setItem('id', own_id)
 
     const init_messages = getAllPostMessages()
-    const messages$ = solid.atom(init_messages)
+    const posts$ = solid.atom(init_messages)
     const peers$ = solid.atom<PeerState[]>([])
+
+    function updatePosts(posts: PostMessage[]): void {
+        posts$.set(posts)
+        storePostMessages(posts)
+    }
 
     const hive: HiveState = {
         id: own_id,
         peers: [],
-        onMessage: message => {
+        onWsMessage: message => {
             ws.send(JSON.stringify(message))
+        },
+        onPeerMessage: (peer, data) => {
+            const msg = parsePeerMessage(data)
+            if (!msg) return
+
+            handlePeerMessage(peer, msg, posts$(), updatePosts)
         },
         onPeerConnect: peer => {
             solid.mutate(peers$, list => list.push(peer))
 
-            peer.in_channel!.onmessage = (event: MessageEvent<string>) => {
-                const msg = parsePeerMessage(event.data)
-                if (!msg) return
-
-                switch (msg.type) {
-                    case 'post': {
-                        const own_messages = messages$()
-                        for (const message of own_messages) {
-                            if (message.id === msg.data.id) return
-                        }
-                        own_messages.push(msg.data)
-                        messages$.trigger()
-                        storePostMessage(msg.data)
-                        break
-                    }
-                    case 'stored_posts': {
-                        const stored_ids = new Set(msg.data)
-                        const own_messages = messages$()
-
-                        for (const message of own_messages) {
-                            if (stored_ids.has(message.id)) {
-                                stored_ids.delete(message.id)
-                                continue
-                            }
-                            peerSendMessage(peer, {
-                                type: 'post',
-                                data: message,
-                            })
-                        }
-
-                        if (stored_ids.size > 0) {
-                            peerSendMessage(peer, {
-                                type: 'request_posts',
-                                data: Array.from(stored_ids),
-                            })
-                        }
-
-                        break
-                    }
-                    case 'request_posts': {
-                        const stored_ids = new Set(msg.data)
-                        const own_messages = messages$()
-
-                        for (const message of own_messages) {
-                            if (!stored_ids.has(message.id)) continue
-                            peerSendMessage(peer, {
-                                type: 'post',
-                                data: message,
-                            })
-                        }
-                    }
-                }
-            }
-
+            /*
+                Send all stored posts to the peer at connection start
+                this way the peer will know which posts it can request
+            */
             peerSendMessage(peer, {
                 type: 'stored_posts',
-                data: messages$().map(m => m.id),
+                data: posts$().map(m => m.id),
             })
         },
         onPeerDisconnect: peer => {
@@ -581,39 +596,30 @@ function App() {
         const post = makePostMessage(own_id, content)
         for (const peer of hive.peers) {
             peerSendMessage(peer, {
-                type: 'post',
-                data: post,
+                type: 'posts',
+                data: [post],
             })
         }
-        solid.mutate(messages$, list => list.push(post))
+        solid.mutate(posts$, list => list.push(post))
         storePostMessage(post)
     }
 
     let input!: HTMLInputElement
     return (
         <>
-            <div
-                style={`
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                `}
-            >
+            <div>
                 <h4>Own ID: {own_id}</h4>
             </div>
             <button
-                style={`
-                    position: absolute;
-                    top: 5px;
-                    right: 5px;
-                `}
                 onClick={() => {
                     localStorage.clear()
-                    messages$.set([])
+                    posts$.set([])
                 }}
             >
                 Clear messages
             </button>
+            <br />
+            <br />
             <form
                 onSubmit={e => {
                     e.preventDefault()
@@ -633,7 +639,7 @@ function App() {
                 <div>
                     <h4>Messages</h4>
                     <ul>
-                        <solid.For each={messages$()}>
+                        <solid.For each={posts$()}>
                             {item => (
                                 <li
                                     style={`
