@@ -4,5 +4,6 @@
         "composite": true,
         "types": ["node"]
     },
-    "include": ["vite.config.ts"]
+    "include": ["vite.config.ts", "uno.config.ts"],
+    "references": [{"path": "./tsconfig.lib.json"}]
 }

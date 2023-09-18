@@ -629,35 +629,14 @@ function App() {
             >
                 <input ref={input} />
             </form>
-            <div
-                style={`
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    grid-gap: 10px;
-                `}
-            >
+            <div class="grid gap-4 grid-cols-2">
                 <div>
                     <h4>Messages</h4>
                     <ul>
                         <solid.For each={posts$()}>
                             {item => (
-                                <li
-                                    style={`
-                                        margin-bottom: 10px;
-                                        display: flex;
-                                        flex-direction: column;
-                                        justify-content: flex-start;
-                                        align-items: flex-start;
-                                        padding: 5px;
-                                        border: 1px solid #ccc;
-                                    `}
-                                >
-                                    <span
-                                        style={`
-                                            font-size: 0.7em;
-                                            color: #888;
-                                        `}
-                                    >
+                                <li class="flex flex-col justify-start items-start p-2 mb-4 rounded-md bg-gray-800">
+                                    <span class="text-sm text-gray-400">
                                         {item.author} | {formatTimestamp(item.timestamp)}
                                     </span>
                                     {item.content}
@@ -670,16 +649,7 @@ function App() {
                     <h4>Peers</h4>
                     <ul>
                         <solid.For each={peers$()}>
-                            {peer => (
-                                <li
-                                    style={`
-                                        font-size: 0.7em;
-                                        color: #888;
-                                    `}
-                                >
-                                    {peer.id}
-                                </li>
-                            )}
+                            {peer => <li class="text-sm text-gray-400">{peer.id}</li>}
                         </solid.For>
                     </ul>
                 </div>

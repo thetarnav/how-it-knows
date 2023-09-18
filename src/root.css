@@ -1,0 +1,48 @@
+html {
+    font-size: 22px;
+    --at-apply: font-sans;
+    --at-apply: text-white;
+    color-scheme: dark;
+}
+
+@media screen and (max-width: 52rem) {
+    html {
+        font-size: 18px;
+    }
+}
+
+*::selection {
+    --at-apply: bg-blue text-dark;
+}
+
+body {
+    --at-apply: bg-dark;
+}
+
+button,
+input {
+    --at-apply: bg-transparent cursor-pointer;
+    --at-apply: border-blue border-2 border-solid;
+    --at-apply: px-1;
+    --at-apply: 'hover:border-red';
+    --at-apply: 'focus:border-white';
+}
+
+button {
+    --at-apply: 'active:bg-red active:focus:bg-red active:text-dark active:border-red';
+}
+
+kbd {
+    --at-apply: h-6 w-6 inline-flex items-center justify-center border-2 border-blue font-inherit;
+}
+
+/* Disable number input arrows */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
