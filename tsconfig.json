@@ -4,9 +4,7 @@
         "lib": ["ESNext", "DOM", "DOM.Iterable"],
         "allowImportingTsExtensions": true,
         "noEmit": true,
-        "types": ["vite/client"],
-        "jsx": "preserve",
-        "jsxImportSource": "solid-js"
+        "types": ["vite/client"]
     },
     "include": ["src"],
     "references": [{"path": "./tsconfig.node.json"}, {"path": "./tsconfig.lib.json"}]

@@ -3,6 +3,11 @@ import * as unocss from 'unocss'
 import * as theme from './theme/index.js'
 
 export default unocss.defineConfig({
+    content: {
+        pipeline: {
+            include: ['src/**/*.{ts,js,jsx,tsx}'],
+        },
+    },
     presets: [unocss.presetUno({dark: 'media'})],
     transformers: [transformerDirectives()],
     theme: {

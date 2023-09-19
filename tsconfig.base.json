@@ -17,6 +17,7 @@
         "noFallthroughCasesInSwitch": true,
         "forceConsistentCasingInFileNames": true,
         "noPropertyAccessFromIndexSignature": true,
-        "noUncheckedIndexedAccess": true
+        "noUncheckedIndexedAccess": true,
+        "verbatimModuleSyntax": true
     }
 }
