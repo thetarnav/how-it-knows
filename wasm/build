@@ -1,0 +1,3 @@
+#!/bin/bash
+
+odin build src -out:dist/lib.wasm -target:js_wasm32
