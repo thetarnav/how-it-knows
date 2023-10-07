@@ -4,7 +4,16 @@ package hive
 import "core:fmt"
 import "core:mem"
 import "core:runtime"
+import "core:strings"
 import wasm "vendor:wasm/js"
+
+foreign import "env"
+
+@(default_calling_convention = "contextless")
+foreign env {
+	pass_my_string :: proc(str: string) ---
+	pass_my_post :: proc(post: ^Post) ---
+}
 
 
 global_allocator := wasm.page_allocator()
@@ -24,40 +33,30 @@ Post :: struct {
 	content: string,
 }
 
-My_Str :: struct {
-	len: int,
-	ptr: string,
-}
-
 
 @(export)
-call_me :: proc "c" (ctx: ^runtime.Context, input_str: cstring) -> ^My_Str {
+call_me :: proc "c" (ctx: ^runtime.Context, input_str: string) {
 	context = ctx^
 	context.allocator = global_allocator
+
 
 	fmt.printf("call_me called:\n\tstr: %s \n\talloc: %v\n", input_str, global_allocator)
 
 	buf, err := alloc_pages(1)
 	context.allocator = mem.arena_allocator(&{data = buf})
 
-	str: string = "nice to meet you!"
+
+	pass_my_string("nice to meet you!")
+
+	post := Post {
+		id      = 1,
+		title   = "Hello, world!",
+		content = "This is my first post!",
+	}
+	pass_my_post(&post)
 
 
-	my_str := new(My_Str)
-	my_str.ptr = str
-	my_str.len = len(str)
-
-	str_bytes := mem.byte_slice(&str, size_of(str))
-
-	fmt.printf(
-		"my_str:\n\tstr: %s\n\tsize: %d\n\tstr bytes: %v\n",
-		str,
-		size_of(my_str^),
-		str_bytes,
-	)
-
-
-	return my_str
+	return
 }
 
 @(require_results)
