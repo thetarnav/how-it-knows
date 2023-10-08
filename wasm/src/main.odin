@@ -8,11 +8,20 @@ import "core:strings"
 import wasm "vendor:wasm/js"
 
 foreign import "env"
+foreign import "local_storage"
 
 @(default_calling_convention = "contextless")
 foreign env {
 	pass_my_string :: proc(str: string) ---
 	pass_my_post :: proc(post: ^Post) ---
+}
+
+@(default_calling_convention = "contextless")
+foreign local_storage {
+	ls_get :: proc(key: string, value: []byte) -> int ---
+	ls_set :: proc(key: string, value: string) ---
+	ls_remove :: proc(key: string) ---
+	ls_clear :: proc() ---
 }
 
 
@@ -23,6 +32,7 @@ main :: proc() {
 
 	fmt.printf("Hello, world!\n\tptr_size: %d \n\talloc: %v\n", size_of(rawptr), global_allocator)
 
+	ls_set("test", "test_value")
 
 	// fmt.println("main alocated", alloc_ptr, err, buf)
 }
@@ -35,12 +45,12 @@ Post :: struct {
 
 
 @(export)
-call_me :: proc "c" (ctx: ^runtime.Context, input_str: string) {
+call_me :: proc "c" (ctx: ^runtime.Context) {
 	context = ctx^
 	context.allocator = global_allocator
 
 
-	fmt.printf("call_me called:\n\tstr: %s \n\talloc: %v\n", input_str, global_allocator)
+	fmt.println("call_me called")
 
 	buf, err := alloc_pages(1)
 	context.allocator = mem.arena_allocator(&{data = buf})
@@ -54,6 +64,15 @@ call_me :: proc "c" (ctx: ^runtime.Context, input_str: string) {
 		content = "This is my first post!",
 	}
 	pass_my_post(&post)
+
+
+	ls_buf := make([]byte, 100)
+	len := ls_get("test", ls_buf)
+	sb := strings.builder_make()
+	strings.write_bytes(&sb, ls_buf[:len])
+	from_storage := strings.to_string(sb)
+
+	fmt.println("from_storage", from_storage)
 
 
 	return
