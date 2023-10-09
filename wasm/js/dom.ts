@@ -1,5 +1,5 @@
 import {MemOffset, REG_LEN} from './mem'
-import {wmi} from './runtime'
+import {odin_exports, wmi} from './runtime'
 
 export interface DomOdinExports {
     odin_dom_do_event_callback: (data: number, callback: number, ctx_ptr: number) => void
@@ -93,7 +93,7 @@ export function init_event_raw(event_ptr: number /*Event*/) {
         wmi.storeI16(offset.off(2), e.button)
         wmi.storeU16(offset.off(2), e.buttons)
     } else if (e instanceof KeyboardEvent) {
-        // Note: those strigs are constructed
+        // Note: those strings are constructed
         // on the native side from buffers that
         // are filled later, so skip them
         void offset.off(REG_LEN * 2, REG_LEN)
@@ -141,12 +141,12 @@ export function add_event_listener(
     if (!element) return false
 
     const listener = (e: Event) => {
-        const odin_ctx = wmi.exports.default_context_ptr()
+        const odin_ctx = odin_exports.default_context_ptr()
         event_temp_data.id_ptr = id_ptr
         event_temp_data.id_len = id_len
         event_temp_data.event = e
         event_temp_data.name_code = name_code
-        wmi.exports.odin_dom_do_event_callback(data, callback, odin_ctx)
+        odin_exports.odin_dom_do_event_callback(data, callback, odin_ctx)
     }
     listener_map.set(callback, listener)
     element.addEventListener(name, listener, !!use_capture)
@@ -187,12 +187,12 @@ export function add_window_event_listener(
     const name = wmi.loadString(name_ptr, name_len)
     const element = window
     const listener = (e: Event) => {
-        const odin_ctx = wmi.exports.default_context_ptr()
+        const odin_ctx = odin_exports.default_context_ptr()
         event_temp_data.id_ptr = 0
         event_temp_data.id_len = 0
         event_temp_data.event = e
         event_temp_data.name_code = name_code
-        wmi.exports.odin_dom_do_event_callback(data, callback, odin_ctx)
+        odin_exports.odin_dom_do_event_callback(data, callback, odin_ctx)
     }
     listener_map.set(callback, listener)
     element.addEventListener(name, listener, !!use_capture)

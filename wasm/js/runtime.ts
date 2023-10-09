@@ -135,6 +135,7 @@ function pass_my_post(ptr: number): void {
 }
 
 export let wmi: WasmMemoryInterface
+export let odin_exports: OdinExports
 
 export async function runWasm(wasmPath: string) {
     wmi = new WasmMemoryInterface()
@@ -152,59 +153,26 @@ export async function runWasm(wasmPath: string) {
     const response = await fetch(wasmPath)
     const file = await response.arrayBuffer()
     const wasm = await WebAssembly.instantiate(file, imports)
-    const exports = wasm.instance.exports as any as OdinExports
+    odin_exports = wasm.instance.exports as any as OdinExports
 
-    wmi.exports = exports
-    wmi.memory = exports.memory
+    wmi.memory = odin_exports.memory
 
-    console.log('Exports', exports)
-    console.log('Memory', exports.memory)
+    console.log('Exports', odin_exports)
+    console.log('Memory', odin_exports.memory)
 
-    exports._start()
-    exports._end()
+    odin_exports._start()
+    odin_exports._end()
 
-    const odin_ctx = exports.default_context_ptr()
+    const odin_ctx = odin_exports.default_context_ptr()
 
     try {
-        const returned = exports.call_me(odin_ctx)
-
-        // console.log('Returned', returned)
-
-        // try {
-        //     const len = wsi.loadU32(returned)
-        //     const str_ptr = returned + REG_LEN
-        //     const bytes = wsi.loadBytes(str_ptr, len).map(x => x + 97)
-        //     const str = new TextDecoder().decode(bytes)
-
-        //     console.log(len, [...bytes], str)
-
-        //     let u8arr = new Uint8Array(wsi.mem.buffer, str_ptr, len)
-        //     let i8arr = new Int8Array(wsi.mem.buffer, str_ptr, len)
-        //     let u16arr = new Uint16Array(wsi.mem.buffer, str_ptr, len)
-        //     let i16arr = new Int16Array(wsi.mem.buffer, str_ptr, len)
-        //     let i32arr = new Int32Array(wsi.mem.buffer, str_ptr, len)
-
-        //     console.log({
-        //         u8arr: new TextDecoder().decode(u8arr),
-        //         i8arr: new TextDecoder().decode(i8arr),
-        //         u16arr: new TextDecoder().decode(u16arr),
-        //         i16arr: new TextDecoder().decode(i16arr),
-        //         i32arr: new TextDecoder().decode(i32arr),
-        //     })
-
-        //     console.log([...new TextEncoder().encode('nice to meet you!')])
-
-        //     // const str = wasmMemoryInterface.loadString(returned + 4, 17)
-        //     // console.log('str', str)
-        // } catch (error) {
-        //     console.error('loadString error', error)
-        // }
+        odin_exports.call_me(odin_ctx)
     } catch (error) {
         console.error('call_me error', error)
     }
 
     try {
-        const ptr = exports.allocate_slice(odin_ctx, 64 * 1024)
+        const ptr = odin_exports.allocate_slice(odin_ctx, 64 * 1024)
         console.log('ptr', ptr)
     } catch (error) {
         console.error('allocate_slice error', error)

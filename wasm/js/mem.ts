@@ -1,5 +1,3 @@
-import type {OdinExports} from './runtime'
-
 export const REG_SIZE = 32
 export const REG_LEN = REG_SIZE / 8
 
@@ -25,7 +23,6 @@ export class MemOffset {
 
 export class WasmMemoryInterface {
     memory!: WebAssembly.Memory
-    exports!: OdinExports
 
     get mem(): DataView {
         return new DataView(this.memory.buffer)

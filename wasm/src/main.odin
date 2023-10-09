@@ -73,9 +73,6 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 	from_storage := strings.to_string(sb)
 
 	fmt.println("from_storage", from_storage)
-
-
-	return
 }
 
 @(require_results)
