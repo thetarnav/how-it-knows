@@ -1,6 +1,13 @@
 export const REG_SIZE = 32
 export const REG_LEN = REG_SIZE / 8
 
+export const is_little_endian = /*#__PURE__*/ (() => {
+    const buffer = new ArrayBuffer(2)
+    new DataView(buffer).setInt16(0, 256, true /* little-endian */)
+    // Int16Array uses the platform's endianness.
+    return new Int16Array(buffer)[0] === 256
+})()
+
 export class MemOffset {
     constructor(public offset = 0) {}
 
