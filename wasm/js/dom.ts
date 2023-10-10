@@ -1,4 +1,4 @@
-import {MemOffset, REG_LEN} from './mem'
+import {MemOffset, REG_SIZE} from './mem'
 import {odin_exports, wmi} from './runtime'
 
 export interface DomOdinExports {
@@ -46,9 +46,9 @@ export function init_event_raw(event_ptr: number /*Event*/) {
     }
 
     /* id: string */
-    wmi.storeUint(offset.off(REG_LEN), event_temp_data.id_ptr)
-    wmi.storeUint(offset.off(REG_LEN), event_temp_data.id_len)
-    wmi.storeUint(offset.off(REG_LEN), 0) // padding
+    wmi.storeUint(offset.off(REG_SIZE), event_temp_data.id_ptr)
+    wmi.storeUint(offset.off(REG_SIZE), event_temp_data.id_len)
+    wmi.storeUint(offset.off(REG_SIZE), 0) // padding
 
     /* timestamp: f64 */
     wmi.storeF64(offset.off(8), e.timeStamp * 1e-3)
@@ -96,8 +96,8 @@ export function init_event_raw(event_ptr: number /*Event*/) {
         // Note: those strings are constructed
         // on the native side from buffers that
         // are filled later, so skip them
-        void offset.off(REG_LEN * 2, REG_LEN)
-        void offset.off(REG_LEN * 2, REG_LEN)
+        void offset.off(REG_SIZE * 2, REG_SIZE)
+        void offset.off(REG_SIZE * 2, REG_SIZE)
 
         wmi.storeU8(offset.off(1), e.location)
 
@@ -108,8 +108,8 @@ export function init_event_raw(event_ptr: number /*Event*/) {
 
         wmi.storeU8(offset.off(1), !!e.repeat)
 
-        wmi.storeI32(offset.off(REG_LEN), e.key.length)
-        wmi.storeI32(offset.off(REG_LEN), e.code.length)
+        wmi.storeI32(offset.off(REG_SIZE), e.key.length)
+        wmi.storeI32(offset.off(REG_SIZE), e.code.length)
         wmi.storeString(offset.off(16, 1), e.key)
         wmi.storeString(offset.off(16, 1), e.code)
     } else if (e instanceof WheelEvent) {
