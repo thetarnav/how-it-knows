@@ -25,7 +25,7 @@ const env = {
     pass_my_string: function (ptr: number, len: number): void {
         // const len = wsi.loadU32(ptr)
         // const str_ptr = ptr + REG_LEN
-        const bytes = mem.loadBytes(wasm_memory, ptr, len)
+        const bytes = mem.load_bytes(wasm_memory.buffer, ptr, len)
         const str = new TextDecoder().decode(bytes)
 
         console.log('pass_my_string:', str)
@@ -42,13 +42,13 @@ const env = {
         /* title: string */
         const title_ptr = mem.load_uint(data, offset.off(mem.REG_SIZE))
         const title_len = mem.load_uint(data, offset.off(mem.REG_SIZE))
-        const title = mem.loadString(wasm_memory, title_ptr, title_len)
+        const title = mem.load_string(data.buffer, title_ptr, title_len)
         console.log('pass_my_post title:', title)
 
         /* content: string */
         const content_ptr = mem.load_uint(data, offset.off(mem.REG_SIZE))
         const content_len = mem.load_uint(data, offset.off(mem.REG_SIZE))
-        const content = mem.loadString(wasm_memory, content_ptr, content_len)
+        const content = mem.load_string(data.buffer, content_ptr, content_len)
         console.log('pass_my_post content:', content)
     },
     pass_types: function (ptr: number): void {
@@ -65,7 +65,9 @@ const env = {
         const i128 = mem.load_i128(data, offset.off(16))
 
         const uint = mem.load_uint(data, offset.off(mem.REG_SIZE))
-        const u8 = mem.load_u8(data, offset.off(1))
+        const u8_ptr = offset.off(1)
+        console.log('u8_ptr', u8_ptr)
+        const u8 = mem.load_u8(data, u8_ptr)
         const u16 = mem.load_u16(data, offset.off(2))
         const u32 = mem.load_u32(data, offset.off(4))
         const u64 = mem.load_u64(data, offset.off(8))
@@ -90,16 +92,37 @@ const env = {
         const u64be = mem.load_u64be(data, offset.off(8))
         const u128be = mem.load_u128be(data, offset.off(16))
 
-        const f16 = '2'
-        offset.off(2)
+        const f16_ptr = offset.off(2)
+
+        const f16_bytes = mem.load_bytes(data.buffer, f16_ptr, 2)
+
+        console.log(
+            'f16, ptr:',
+            f16_ptr,
+            [...f16_bytes].map(byte => byte.toString(2).padStart(8, '0')).join(' '),
+        )
+
+        const f16 = mem.load_f16(data.buffer, f16_ptr)
+        // offset.off(2)
         const f32 = mem.load_f32(data, offset.off(4))
         const f64 = mem.load_f64(data, offset.off(8))
-        const f16le = '2'
-        const f32le = '4'
-        const f64le = '8'
-        const f16be = '2'
-        const f32be = '4'
-        const f64be = '8'
+        const f16le = mem.load_f16le(data.buffer, offset.off(2))
+        const f32le = mem.load_f32le(data, offset.off(4))
+        const f64le = mem.load_f64le(data, offset.off(8))
+
+        const f16be_ptr = offset.off(2)
+
+        const f16be_bytes = mem.load_bytes(data.buffer, f16be_ptr, 2)
+
+        console.log(
+            'f16be ptr:',
+            f16be_ptr,
+            [...f16be_bytes].map(byte => byte.toString(2).padStart(8, '0')).join(' '),
+        )
+
+        const f16be = mem.load_f16be(data.buffer, f16be_ptr)
+        const f32be = mem.load_f32be(data, offset.off(4))
+        const f64be = mem.load_f64be(data, offset.off(8))
         const bool = 'register size'
         const b8 = '1'
         const b16 = '2'
@@ -164,7 +187,7 @@ const env = {
             cstring: ${cstring}
         `)
 
-        // debugger
+        debugger
     },
 }
 

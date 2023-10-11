@@ -1,4 +1,4 @@
-import {loadString} from './mem'
+import {load_string} from './mem'
 import {wasm_memory} from './runtime'
 
 function stripNewline(str: string): string {
@@ -36,20 +36,20 @@ const writeToConsole = function (fd: number, str: string): void {
 
 export const odin_env = {
     write: (fd: number, ptr: number, len: number): void => {
-        const str = loadString(wasm_memory, ptr, len)
+        const str = load_string(wasm_memory.buffer, ptr, len)
         writeToConsole(fd, str)
     },
     trap: (): never => {
         throw new Error()
     },
     alert: (ptr: number, len: number): void => {
-        alert(loadString(wasm_memory, ptr, len))
+        alert(load_string(wasm_memory.buffer, ptr, len))
     },
     abort: (): never => {
         throw new Error('abort')
     },
     evaluate: (str_ptr: number, str_len: number) => {
-        void eval.call(null, loadString(wasm_memory, str_ptr, str_len))
+        void eval.call(null, load_string(wasm_memory.buffer, str_ptr, str_len))
     },
 
     time_now: () => {
