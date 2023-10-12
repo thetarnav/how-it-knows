@@ -109,11 +109,11 @@ const env = {
         const b64 = mem.load_b64(data, offset.off(8))
 
         const string = mem.load_string(data, offset.off(8))
+        const cstring = mem.load_cstring(data, offset.off(4))
         const rune = mem.load_rune(data, offset.off(4))
         const rawptr = mem.load_ptr(data, offset.off(mem.REG_SIZE))
-        const any = '8'
-        const byte = '1'
-        const cstring = '4'
+        const any = mem.load_any(data, offset.off(8))
+        const byte = mem.load_byte(data, offset.off(1))
 
         console.log(`
             int: ${int}

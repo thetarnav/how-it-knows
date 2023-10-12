@@ -117,11 +117,11 @@ Types :: struct {
 	b32:     b32, //        4
 	b64:     b64, //        8
 	string:  string, // 	8
+	cstring: cstring, //    4
 	rune:    rune, // 	    4
 	rawptr:  rawptr, // 	register size
 	any:     any, // 	    8
 	byte:    byte, // 	    1
-	cstring: cstring, //    4
 }
 
 main :: proc() {
@@ -216,11 +216,11 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 		b32 = false,
 		b64 = true,
 		string = "nice",
+		cstring = "nice",
 		rune = 'a',
 		rawptr = &global_allocator,
 		any = Types{},
 		byte = 69,
-		cstring = "nice",
 	}
 
 	fmt.printf("types: %v\n", types)

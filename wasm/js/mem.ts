@@ -45,6 +45,7 @@ export const load_bool = load_b8
 export const load_u8 = (mem: DataView, addr: number): number => {
     return mem.getUint8(addr)
 }
+export const load_byte = load_u8
 export const load_i8 = (mem: DataView, addr: number): number => {
     return mem.getInt8(addr)
 }
@@ -194,9 +195,24 @@ export const load_string = (mem: DataView, ptr: number): string => {
     ptr = load_ptr(mem, ptr)
     return load_string_buffer(mem.buffer, ptr, len)
 }
+export const load_cstring = (mem: DataView, ptr: number): string => {
+    ptr = load_ptr(mem, ptr)
+    let str = '',
+        c: number
+    while ((c = mem.getUint8(ptr))) {
+        str += String.fromCharCode(c)
+        ptr++
+    }
+    return str
+}
 export const load_rune = (mem: DataView, ptr: number): string => {
     const code = load_u32(mem, ptr)
     return String.fromCharCode(code)
+}
+
+export const load_any = (mem: DataView, ptr: number): null => {
+    // TODO
+    return null
 }
 
 export const load_f32_array = (
