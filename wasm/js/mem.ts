@@ -184,6 +184,7 @@ export const load_f64be = (mem: DataView, addr: number): number => {
 export const load_bytes = (buffer: ArrayBufferLike, ptr: number, len: number): Uint8Array => {
     return new Uint8Array(buffer, ptr, len)
 }
+
 export const load_string_buffer = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
     const bytes = new Uint8Array(buffer, ptr, len)
     return new TextDecoder().decode(bytes)
@@ -193,6 +194,11 @@ export const load_string = (mem: DataView, ptr: number): string => {
     ptr = load_ptr(mem, ptr)
     return load_string_buffer(mem.buffer, ptr, len)
 }
+export const load_rune = (mem: DataView, ptr: number): string => {
+    const code = load_u32(mem, ptr)
+    return String.fromCharCode(code)
+}
+
 export const load_f32_array = (
     memory: WebAssembly.Memory,
     addr: number,
