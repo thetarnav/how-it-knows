@@ -71,13 +71,6 @@ page_allocator :: proc() -> mem.Allocator {
 
 global_allocator := page_allocator()
 
-Target_Specific :: struct {
-	u8:   u8,
-	u128: u128,
-}
-
-#assert(size_of(Target_Specific) == 24)
-
 
 Types :: struct {
 	int:     int, //        register size
@@ -218,9 +211,9 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 		f32be = 75.69,
 		f64be = 75.69,
 		bool = true,
-		b8 = true,
+		b8 = false,
 		b16 = true,
-		b32 = true,
+		b32 = false,
 		b64 = true,
 		string = "nice",
 		rune = 'a',
@@ -229,7 +222,6 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 		byte = 69,
 		cstring = "nice",
 	}
-
 
 	fmt.printf("types: %v\n", types)
 
@@ -278,7 +270,9 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 		types.b16,
 		types.b32,
 		types.b64,
-		types.string,
+		&types.string,
+		// size_of(types.string),
+		// transmute([]u8)(types.string),
 		types.rune,
 		types.rawptr,
 		types.byte,
