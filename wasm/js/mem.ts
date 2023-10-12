@@ -41,14 +41,18 @@ export const load_i8 = (mem: DataView, addr: number): number => {
     return mem.getInt8(addr)
 }
 
-export const load_u16 = (mem: DataView, addr: number): number => {
+export const load_u16 = (mem: DataView, addr: number, le = is_little_endian): number => {
+    return mem.getUint16(addr, le)
+}
+export const load_i16 = (mem: DataView, addr: number, le = is_little_endian): number => {
+    return mem.getInt16(addr, le)
+}
+export const load_u16le = (mem: DataView, addr: number): number => {
     return mem.getUint16(addr, true)
 }
-export const load_i16 = (mem: DataView, addr: number): number => {
+export const load_i16le = (mem: DataView, addr: number): number => {
     return mem.getInt16(addr, true)
 }
-export const load_u16le = load_u16
-export const load_i16le = load_i16
 export const load_u16be = (mem: DataView, addr: number): number => {
     return mem.getUint16(addr, false)
 }
@@ -56,62 +60,74 @@ export const load_i16be = (mem: DataView, addr: number): number => {
     return mem.getInt16(addr, false)
 }
 
-export const load_u32 = (mem: DataView, addr: number): number => {
+export const load_u32 = (mem: DataView, addr: number, le = is_little_endian): number => {
+    return mem.getUint32(addr, le)
+}
+export const load_i32 = (mem: DataView, addr: number, le = is_little_endian): number => {
+    return mem.getInt32(addr, le)
+}
+export const load_u32le = (mem: DataView, addr: number): number => {
     return mem.getUint32(addr, true)
 }
-export const load_i32 = (mem: DataView, addr: number): number => {
+export const load_i32le = (mem: DataView, addr: number): number => {
     return mem.getInt32(addr, true)
-}
-export const load_int = load_i32
-export const load_i32le = load_i32
-export const load_uint = load_u32
-export const load_u32le = load_u32
-export const load_i32be = (mem: DataView, addr: number): number => {
-    return mem.getInt32(addr, false)
 }
 export const load_u32be = (mem: DataView, addr: number): number => {
     return mem.getUint32(addr, false)
 }
+export const load_i32be = (mem: DataView, addr: number): number => {
+    return mem.getInt32(addr, false)
+}
+export const load_uint = (mem: DataView, addr: number): number => {
+    return mem.getUint32(addr, is_little_endian)
+}
+export const load_int = (mem: DataView, addr: number): number => {
+    return mem.getInt32(addr, is_little_endian)
+}
 
-export const load_u64 = (mem: DataView, addr: number): bigint => {
+export const load_u64 = (mem: DataView, addr: number, le = is_little_endian): bigint => {
+    return mem.getBigUint64(addr, le)
+}
+export const load_i64 = (mem: DataView, addr: number, le = is_little_endian): bigint => {
+    return mem.getBigInt64(addr, le)
+}
+export const load_u64le = (mem: DataView, addr: number): bigint => {
     return mem.getBigUint64(addr, true)
 }
-export const load_i64 = (mem: DataView, addr: number): bigint => {
+export const load_i64le = (mem: DataView, addr: number): bigint => {
     return mem.getBigInt64(addr, true)
-}
-export const load_i64le = load_i64
-export const load_u64le = load_u64
-export const load_i64be = (mem: DataView, addr: number): bigint => {
-    return mem.getBigInt64(addr, false)
 }
 export const load_u64be = (mem: DataView, addr: number): bigint => {
     return mem.getBigUint64(addr, false)
 }
+export const load_i64be = (mem: DataView, addr: number): bigint => {
+    return mem.getBigInt64(addr, false)
+}
 
-export const load_u128 = (mem: DataView, addr: number): bigint => {
-    const lo = mem.getBigUint64(addr, true)
-    const hi = mem.getBigUint64(addr + 8, true)
-    return lo + hi * 18446744073709551616n
+export const load_u128 = (mem: DataView, addr: number, le = is_little_endian): bigint => {
+    const lo = mem.getBigUint64(addr, le)
+    const hi = mem.getBigUint64(addr + 8, le)
+    return le ? lo + hi * 18446744073709551616n : hi + lo * 18446744073709551616n
 }
-export const load_i128 = (mem: DataView, addr: number): bigint => {
-    const lo = mem.getBigInt64(addr, true)
-    const hi = mem.getBigInt64(addr + 8, true)
-    return lo + hi * 18446744073709551616n
+export const load_i128 = (mem: DataView, addr: number, le = is_little_endian): bigint => {
+    const lo = mem.getBigInt64(addr, le)
+    const hi = mem.getBigInt64(addr + 8, le)
+    return le ? lo + hi * 18446744073709551616n : hi + lo * 18446744073709551616n
 }
-export const load_i128le = load_i128
-export const load_u128le = load_u128
-export const load_i128be = (mem: DataView, addr: number): bigint => {
-    const lo = mem.getBigInt64(addr + 8, false)
-    const hi = mem.getBigInt64(addr, false)
-    return lo + hi * 18446744073709551616n
+export const load_u128le = (mem: DataView, addr: number): bigint => {
+    return load_u128(mem, addr, true)
+}
+export const load_i128le = (mem: DataView, addr: number): bigint => {
+    return load_i128(mem, addr, true)
 }
 export const load_u128be = (mem: DataView, addr: number): bigint => {
-    const lo = mem.getBigUint64(addr + 8, false)
-    const hi = mem.getBigUint64(addr, false)
-    return lo + hi * 18446744073709551616n
+    return load_u128(mem, addr, false)
+}
+export const load_i128be = (mem: DataView, addr: number): bigint => {
+    return load_i128(mem, addr, false)
 }
 
-export const load_f16 = (buffer: ArrayBufferLike, addr: number, le = true): number => {
+export const load_f16 = (buffer: ArrayBufferLike, addr: number, le = is_little_endian): number => {
     const bytes = load_bytes(buffer, addr, 2) as any as [number, number]
 
     if (le) {
@@ -138,7 +154,7 @@ export const load_f16be = (buffer: ArrayBufferLike, addr: number): number => {
     return load_f16(buffer, addr, false)
 }
 
-export const load_f32 = (mem: DataView, addr: number, le = true): number => {
+export const load_f32 = (mem: DataView, addr: number, le = is_little_endian): number => {
     return mem.getFloat32(addr, le)
 }
 export const load_f32le = (mem: DataView, addr: number): number => {
@@ -148,7 +164,7 @@ export const load_f32be = (mem: DataView, addr: number): number => {
     return mem.getFloat32(addr, false)
 }
 
-export const load_f64 = (mem: DataView, addr: number, le = true): number => {
+export const load_f64 = (mem: DataView, addr: number, le = is_little_endian): number => {
     return mem.getFloat64(addr, le)
 }
 export const load_f64le = (mem: DataView, addr: number): number => {
