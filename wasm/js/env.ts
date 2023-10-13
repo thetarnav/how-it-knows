@@ -54,11 +54,11 @@ export const odin_env = {
         void eval.call(null, str)
     },
 
-    time_now: () => {
+    time_now: (): number => {
         // convert ms to ns
         return Date.now() * 1e6
     },
-    tick_now: () => {
+    tick_now: (): number => {
         // convert ms to ns
         return performance.now() * 1e6
     },

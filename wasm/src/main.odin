@@ -14,7 +14,7 @@ foreign import "local_storage"
 foreign env {
 	pass_my_string :: proc(str: string) ---
 	pass_my_post :: proc(post: ^Post) ---
-	pass_types :: proc(types: ^Types) ---
+	pass_types :: proc(types: ^Types, from_js: ^Types) ---
 }
 
 @(default_calling_convention = "contextless")
@@ -177,7 +177,7 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 		i32     = max(i32) / 2 + 2,
 		i64     = max(i64) / 2 + 2,
 		i128    = max(i128) / 2 + 2,
-		uint    = max(uint) / 2 + 2,
+		uint    = 69,
 		u8      = 188,
 		u16     = max(u16) / 2 + 2,
 		u32     = max(u32) / 2 + 2,
@@ -221,107 +221,14 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 		byte    = 69,
 	}
 
+	from_js := Types{}
+
 	fmt.printf("types: %v\n", types)
 
-	fmt.printf(
-		"types:\n\tint: %v\n\ti8: %v\n\ti16: %v\n\ti32: %v\n\ti64: %v\n\ti128: %v\n\tuint: %v\n\tu8: %v\n\tu16: %v\n\tu32: %v\n\tu64: %v\n\tu128: %v\n\tuintptr: %v\n\ti16le: %v\n\ti32le: %v\n\ti64le: %v\n\ti128le: %v\n\tu16le: %v\n\tu32le: %v\n\tu64le: %v\n\tu128le: %v\n\ti16be: %v\n\ti32be: %v\n\ti64be: %v\n\ti128be: %v\n\tu16be: %v\n\tu32be: %v\n\tu64be: %v\n\tu128be: %v\n\tf16: %v\n\tf32: %v\n\tf64: %v\n\tf16le: %v\n\tf32le: %v\n\tf64le: %v\n\tf16be: %v\n\tf32be: %v\n\tf64be: %v\n\tbool: %v\n\tb8: %v\n\tb16: %v\n\tb32: %v\n\tb64: %v\n\tstring: %v\n\trune: %v\n\trawptr: %v\n\tbyte: %v\n\tcstring: %v\n",
-		types.int,
-		types.i8,
-		types.i16,
-		types.i32,
-		types.i64,
-		types.i128,
-		types.uint,
-		types.u8,
-		types.u16,
-		types.u32,
-		types.u64,
-		types.u128,
-		types.uintptr,
-		types.i16le,
-		types.i32le,
-		types.i64le,
-		types.i128le,
-		types.u16le,
-		types.u32le,
-		types.u64le,
-		types.u128le,
-		types.i16be,
-		types.i32be,
-		types.i64be,
-		types.i128be,
-		types.u16be,
-		types.u32be,
-		types.u64be,
-		types.u128be,
-		types.f16,
-		types.f32,
-		types.f64,
-		types.f16le,
-		types.f32le,
-		types.f64le,
-		types.f16be,
-		types.f32be,
-		types.f64be,
-		types.bool,
-		types.b8,
-		types.b16,
-		types.b32,
-		types.b64,
-		&types.string,
-		// size_of(types.string),
-		// transmute([]u8)(types.string),
-		types.rune,
-		types.rawptr,
-		types.byte,
-		types.cstring,
-	)
 
-	// fmt.printf(
-	// 	"type maxes:\n\tint: %v\n\ti8: %v\n\ti16: %v\n\ti32: %v\n\ti64: %v\n\ti128: %v\n\tuint: %v\n\tu8: %v\n\tu16: %v\n\tu32: %v\n\tu64: %v\n\tu128: %v\n\tuintptr: %v\n\ti16le: %v\n\ti32le: %v\n\ti64le: %v\n\ti128le: %v\n\tu16le: %v\n\tu32le: %v\n\tu64le: %v\n\tu128le: %v\n\ti16be: %v\n\ti32be: %v\n\ti64be: %v\n\ti128be: %v\n\tu16be: %v\n\tu32be: %v\n\tu64be: %v\n\tu128be: %v\n\tf16: %v\n\tf32: %v\n\tf64: %v\n\tf16le: %v\n\tf32le: %v\n\tf64le: %v\n\tf16be: %v\n\tf32be: %v\n\tf64be: %v\n\trune: %d\n\tbyte: %v\n",
-	// 	max(int),
-	// 	max(i8),
-	// 	max(i16),
-	// 	max(i32),
-	// 	max(i64),
-	// 	max(i128),
-	// 	max(uint),
-	// 	max(u8),
-	// 	max(u16),
-	// 	max(u32),
-	// 	max(u64),
-	// 	max(u128),
-	// 	max(uintptr),
-	// 	max(i16le),
-	// 	max(i32le),
-	// 	max(i64le),
-	// 	max(i128le),
-	// 	max(u16le),
-	// 	max(u32le),
-	// 	max(u64le),
-	// 	max(u128le),
-	// 	max(i16be),
-	// 	max(i32be),
-	// 	max(i64be),
-	// 	max(i128be),
-	// 	max(u16be),
-	// 	max(u32be),
-	// 	max(u64be),
-	// 	max(u128be),
-	// 	max(f16),
-	// 	max(f32),
-	// 	max(f64),
-	// 	max(f16le),
-	// 	max(f32le),
-	// 	max(f64le),
-	// 	max(f16be),
-	// 	max(f32be),
-	// 	max(f64be),
-	// 	max(rune),
-	// 	max(byte),
-	// )
+	pass_types(&types, &from_js)
 
-	pass_types(&types)
+	fmt.printf("from_js: %v\n", from_js)
 }
 
 @(require_results)

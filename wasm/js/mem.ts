@@ -7,7 +7,7 @@ export const REG_SIZE = 4 // 32-bit
  */
 export const ALIGNMENT = 8 // 64-bit
 
-export const little_endian = /*#__PURE__*/ (() => {
+export const little_endian = /*#__PURE__*/ ((): boolean => {
     const buffer = new ArrayBuffer(2)
     new DataView(buffer).setInt16(0, 256, true)
     // Int16Array uses the platform's endianness
@@ -373,6 +373,349 @@ export const load_offset_cstring = (mem: DataView, offset: ByteOffset): string =
 }
 export const load_offset_rune = (mem: DataView, offset: ByteOffset): string => {
     return load_rune(mem, offset.off(4))
+}
+
+export const store_bool = (mem: DataView, ptr: number, value: boolean): void => {
+    mem.setUint8(ptr, value as any)
+}
+export const store_offset_bool = (mem: DataView, offset: ByteOffset, value: boolean): void => {
+    mem.setUint8(offset.off(1), value as any)
+}
+export const store_b8 = store_bool
+export const store_offset_b8 = store_offset_bool
+export const store_b16 = store_bool
+export const store_offset_b16 = (mem: DataView, offset: ByteOffset, value: boolean): void => {
+    mem.setUint8(offset.off(2), value as any)
+}
+export const store_b32 = store_bool
+export const store_offset_b32 = (mem: DataView, offset: ByteOffset, value: boolean): void => {
+    mem.setUint8(offset.off(4), value as any)
+}
+export const store_b64 = store_bool
+export const store_offset_b64 = (mem: DataView, offset: ByteOffset, value: boolean): void => {
+    mem.setUint8(offset.off(8), value as any)
+}
+
+export const store_u8 = (mem: DataView, ptr: number, value: number): void => {
+    mem.setUint8(ptr, value)
+}
+export const store_offset_u8 = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setUint8(offset.off(1), value)
+}
+export const store_byte = store_u8
+export const store_offset_byte = store_offset_u8
+export const store_i8 = (mem: DataView, ptr: number, value: number): void => {
+    mem.setInt8(ptr, value)
+}
+export const store_offset_i8 = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setInt8(offset.off(1), value)
+}
+
+export const store_u16 = (mem: DataView, ptr: number, value: number, le = little_endian): void => {
+    mem.setUint16(ptr, value, le)
+}
+export const store_offset_u16 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    mem.setUint16(offset.off(2), value, le)
+}
+export const store_i16 = (mem: DataView, ptr: number, value: number, le = little_endian): void => {
+    mem.setInt16(ptr, value, le)
+}
+export const store_offset_i16 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    mem.setInt16(offset.off(2), value, le)
+}
+export const store_u16le = (mem: DataView, ptr: number, value: number): void => {
+    mem.setUint16(ptr, value, true)
+}
+export const store_offset_u16le = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setUint16(offset.off(2), value, true)
+}
+export const store_u16be = (mem: DataView, ptr: number, value: number): void => {
+    mem.setUint16(ptr, value, false)
+}
+export const store_offset_u16be = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setUint16(offset.off(2), value, false)
+}
+export const store_i16le = (mem: DataView, ptr: number, value: number): void => {
+    mem.setInt16(ptr, value, true)
+}
+export const store_offset_i16le = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setInt16(offset.off(2), value, true)
+}
+export const store_i16be = (mem: DataView, ptr: number, value: number): void => {
+    mem.setInt16(ptr, value, false)
+}
+export const store_offset_i16be = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setInt16(offset.off(2), value, false)
+}
+
+export const store_i32 = (mem: DataView, ptr: number, value: number, le = little_endian): void => {
+    mem.setInt32(ptr, value, le)
+}
+export const store_offset_i32 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    mem.setInt32(offset.off(4), value, le)
+}
+export const store_i32le = (mem: DataView, ptr: number, value: number): void => {
+    mem.setInt32(ptr, value, true)
+}
+export const store_offset_i32le = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setInt32(offset.off(4), value, true)
+}
+export const store_i32be = (mem: DataView, ptr: number, value: number): void => {
+    mem.setInt32(ptr, value, false)
+}
+export const store_offset_i32be = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setInt32(offset.off(4), value, false)
+}
+export const store_int = (mem: DataView, ptr: number, value: number): void => {
+    mem.setInt32(ptr, value, little_endian)
+}
+export const store_offset_int = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setInt32(offset.off(4), value, little_endian)
+}
+
+export const store_i64 = (mem: DataView, ptr: number, value: bigint, le = little_endian): void => {
+    mem.setBigInt64(ptr, value, le)
+}
+export const store_offset_i64 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: bigint,
+    le = little_endian,
+): void => {
+    mem.setBigInt64(offset.off(8), value, le)
+}
+export const store_i64le = (mem: DataView, ptr: number, value: bigint): void => {
+    mem.setBigInt64(ptr, value, true)
+}
+export const store_offset_i64le = (mem: DataView, offset: ByteOffset, value: bigint): void => {
+    mem.setBigInt64(offset.off(8), value, true)
+}
+export const store_i64be = (mem: DataView, ptr: number, value: bigint): void => {
+    mem.setBigInt64(ptr, value, false)
+}
+export const store_offset_i64be = (mem: DataView, offset: ByteOffset, value: bigint): void => {
+    mem.setBigInt64(offset.off(8), value, false)
+}
+export const store_i64_number = (
+    mem: DataView,
+    ptr: number,
+    value: number,
+    le = little_endian,
+): void => {
+    mem.setInt32(ptr + 4 * (!le as any), value, le)
+    mem.setInt32(ptr + 4 * (le as any), Math.floor(value / 4294967296), le)
+}
+export const store_offset_i64_number = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    store_i64_number(mem, offset.off(8), value, le)
+}
+export const store_i64le_number = (mem: DataView, ptr: number, value: number): void => {
+    store_i64_number(mem, ptr, value, true)
+}
+export const store_offset_i64le_number = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+): void => {
+    store_i64_number(mem, offset.off(8), value, true)
+}
+export const store_i64be_number = (mem: DataView, ptr: number, value: number): void => {
+    store_i64_number(mem, ptr, value, false)
+}
+export const store_offset_i64be_number = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+): void => {
+    store_i64_number(mem, offset.off(8), value, false)
+}
+
+export const store_i128 = (mem: DataView, ptr: number, value: bigint, le = little_endian): void => {
+    mem.setBigUint64(ptr + 8 * (!le as any), value & 0xffffffffffffffffn, le)
+    mem.setBigUint64(ptr + 8 * (le as any), value >> 64n, le)
+}
+export const store_offset_i128 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: bigint,
+    le = little_endian,
+): void => {
+    store_i128(mem, offset.off(16), value, le)
+}
+export const store_i128le = (mem: DataView, ptr: number, value: bigint): void => {
+    store_i128(mem, ptr, value, true)
+}
+export const store_offset_i128le = (mem: DataView, offset: ByteOffset, value: bigint): void => {
+    store_i128(mem, offset.off(16), value, true)
+}
+export const store_i128be = (mem: DataView, ptr: number, value: bigint): void => {
+    store_i128(mem, ptr, value, false)
+}
+export const store_offset_i128be = (mem: DataView, offset: ByteOffset, value: bigint): void => {
+    store_i128(mem, offset.off(16), value, false)
+}
+
+export const store_u32 = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u32 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_u64 = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u64 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_u128 = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u128 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+
+export const store_uint = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_uint = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_ptr = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_ptr = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+
+export const store_u32le = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u32le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_u64le = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u64le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_u128le = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u128le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+
+export const store_u32be = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u32be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_u64be = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u64be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_u128be = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_u128be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+
+export const store_f16 = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f16 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f32 = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f32 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f64 = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f64 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f16le = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f16le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f32le = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f32le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f64le = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f64le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f16be = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f16be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f32be = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f32be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_f64be = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_f64be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+
+export const store_string = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_string = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_cstring = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_cstring = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
+}
+export const store_rune = (mem: DataView, ptr: number, value: unknown): void => {
+    //
+}
+export const store_offset_rune = (mem: DataView, offset: ByteOffset, value: unknown): void => {
+    //
 }
 
 export const storeU8 = (mem: DataView, addr: number, value: number | boolean): void => {
