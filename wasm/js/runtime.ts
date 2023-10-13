@@ -33,7 +33,7 @@ const env = {
     pass_my_post: function (ptr: number): void {
         const data = new DataView(wasm_memory.buffer)
 
-        const offset = new mem.MemOffset(ptr)
+        const offset = new mem.ByteOffset(ptr)
 
         /* id: int */
         const id = mem.load_uint(data, offset.off(mem.REG_SIZE))
@@ -54,66 +54,65 @@ const env = {
     pass_types: function (ptr: number): void {
         console.log('pass_types ptr:', ptr)
 
-        const offset = new mem.MemOffset(ptr)
+        const offset = new mem.ByteOffset(ptr)
         const data = new DataView(wasm_memory.buffer)
 
-        const int = mem.load_i32(data, offset.off(mem.REG_SIZE))
-        const i8 = mem.load_i8(data, offset.off(1))
-        const i16 = mem.load_i16(data, offset.off(2))
-        const i32 = mem.load_i32(data, offset.off(4))
-        const i64 = mem.load_i64(data, offset.off(8))
-        const i128 = mem.load_i128(data, offset.off(16))
+        const int = mem.load_offset_i32(data, offset)
+        const i8 = mem.load_offset_i8(data, offset)
+        const i16 = mem.load_offset_i16(data, offset)
+        const i32 = mem.load_offset_i32(data, offset)
+        const i64 = mem.load_offset_i64(data, offset)
+        const i128 = mem.load_offset_i128(data, offset)
 
-        const uint = mem.load_uint(data, offset.off(mem.REG_SIZE))
-        const u8 = mem.load_u8(data, offset.off(1))
-        const u16 = mem.load_u16(data, offset.off(2))
-        const u32 = mem.load_u32(data, offset.off(4))
-        const u64 = mem.load_u64(data, offset.off(8))
-        const u128 = mem.load_u128(data, offset.off(16))
-        const uintptr = mem.load_ptr(data, offset.off(mem.REG_SIZE))
+        const uint = mem.load_offset_uint(data, offset)
+        const u8 = mem.load_offset_u8(data, offset)
+        const u16 = mem.load_offset_u16(data, offset)
+        const u32 = mem.load_offset_u32(data, offset)
+        const u64 = mem.load_offset_u64(data, offset)
+        const u128 = mem.load_offset_u128(data, offset)
+        const uintptr = mem.load_offset_ptr(data, offset)
 
-        const i16le = mem.load_i16le(data, offset.off(2))
-        const i32le = mem.load_i32le(data, offset.off(4))
-        const i64le = mem.load_i64le(data, offset.off(8))
-        const i128le = mem.load_i128le(data, offset.off(16))
-        const u16le = mem.load_u16le(data, offset.off(2))
-        const u32le = mem.load_u32le(data, offset.off(4))
-        const u64le = mem.load_u64le(data, offset.off(8))
-        const u128le = mem.load_u128le(data, offset.off(16))
+        const i16le = mem.load_offset_i16le(data, offset)
+        const i32le = mem.load_offset_i32le(data, offset)
+        const i64le = mem.load_offset_i64le(data, offset)
+        const i128le = mem.load_offset_i128le(data, offset)
+        const u16le = mem.load_offset_u16le(data, offset)
+        const u32le = mem.load_offset_u32le(data, offset)
+        const u64le = mem.load_offset_u64le(data, offset)
+        const u128le = mem.load_offset_u128le(data, offset)
 
-        const i16be = mem.load_i16be(data, offset.off(2))
-        const i32be = mem.load_i32be(data, offset.off(4))
-        const i64be = mem.load_i64be(data, offset.off(8))
-        const i128be = mem.load_i128be(data, offset.off(16))
-        const u16be = mem.load_u16be(data, offset.off(2))
-        const u32be = mem.load_u32be(data, offset.off(4))
-        const u64be = mem.load_u64be(data, offset.off(8))
-        const u128be = mem.load_u128be(data, offset.off(16))
+        const i16be = mem.load_offset_i16be(data, offset)
+        const i32be = mem.load_offset_i32be(data, offset)
+        const i64be = mem.load_offset_i64be(data, offset)
+        const i128be = mem.load_offset_i128be(data, offset)
+        const u16be = mem.load_offset_u16be(data, offset)
+        const u32be = mem.load_offset_u32be(data, offset)
+        const u64be = mem.load_offset_u64be(data, offset)
+        const u128be = mem.load_offset_u128be(data, offset)
 
-        const f16 = mem.load_f16(data, offset.off(2))
-        const f32 = mem.load_f32(data, offset.off(4))
-        const f64 = mem.load_f64(data, offset.off(8))
+        const f16 = mem.load_offset_f16(data, offset)
+        const f32 = mem.load_offset_f32(data, offset)
+        const f64 = mem.load_offset_f64(data, offset)
 
-        const f16le = mem.load_f16le(data, offset.off(2))
-        const f32le = mem.load_f32le(data, offset.off(4))
-        const f64le = mem.load_f64le(data, offset.off(8))
+        const f16le = mem.load_offset_f16le(data, offset)
+        const f32le = mem.load_offset_f32le(data, offset)
+        const f64le = mem.load_offset_f64le(data, offset)
 
-        const f16be = mem.load_f16be(data, offset.off(2))
-        const f32be = mem.load_f32be(data, offset.off(4))
-        const f64be = mem.load_f64be(data, offset.off(8))
+        const f16be = mem.load_offset_f16be(data, offset)
+        const f32be = mem.load_offset_f32be(data, offset)
+        const f64be = mem.load_offset_f64be(data, offset)
 
-        const bool = mem.load_bool(data, offset.off(1))
-        const b8 = mem.load_b8(data, offset.off(1))
-        const b16 = mem.load_b16(data, offset.off(2))
-        const b32 = mem.load_b32(data, offset.off(4))
-        const b64 = mem.load_b64(data, offset.off(8))
+        const bool = mem.load_offset_bool(data, offset)
+        const b8 = mem.load_offset_b8(data, offset)
+        const b16 = mem.load_offset_b16(data, offset)
+        const b32 = mem.load_offset_b32(data, offset)
+        const b64 = mem.load_offset_b64(data, offset)
 
-        const string = mem.load_string(data, offset.off(8))
-        const cstring = mem.load_cstring(data, offset.off(4))
-        const rune = mem.load_rune(data, offset.off(4))
-        const rawptr = mem.load_ptr(data, offset.off(mem.REG_SIZE))
-        const any = mem.load_any(data, offset.off(8))
-        const byte = mem.load_byte(data, offset.off(1))
+        const string = mem.load_offset_string(data, offset)
+        const cstring = mem.load_offset_cstring(data, offset)
+        const rune = mem.load_offset_rune(data, offset)
+        const rawptr = mem.load_offset_ptr(data, offset)
+        const byte = mem.load_offset_byte(data, offset)
 
         console.log(`
             int: ${int}
@@ -162,7 +161,6 @@ const env = {
             string: ${string}
             rune: ${rune}
             rawptr: ${rawptr}
-            any: ${any}
             byte: ${byte}
             cstring: ${cstring}
         `)

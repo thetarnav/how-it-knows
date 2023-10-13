@@ -9,19 +9,19 @@ export const ALIGNMENT = 8 // 64-bit
 
 export const little_endian = /*#__PURE__*/ (() => {
     const buffer = new ArrayBuffer(2)
-    new DataView(buffer).setInt16(0, 256, true /* little-endian */)
-    // Int16Array uses the platform's endianness.
+    new DataView(buffer).setInt16(0, 256, true)
+    // Int16Array uses the platform's endianness
     return new Int16Array(buffer)[0] === 256
 })()
 
-export class MemOffset {
+export class ByteOffset {
     constructor(public offset = 0) {}
 
     /**
      * Move the offset by the given amount.
      *
-     * @param amount The amount to move by
-     * @param alignment The alignment to use. Defaults to the minimum of the amount and the register size. Will be rounded up to the nearest multiple of the alignment.
+     * @param amount The amount of bytes to move by
+     * @param alignment Defaults to the minimum of the amount and the register size. Will be rounded up to the nearest multiple of the alignment.
      * @returns The previous offset
      */
     off(amount: number, alignment = Math.min(amount, ALIGNMENT)): number {
@@ -210,11 +210,6 @@ export const load_rune = (mem: DataView, ptr: number): string => {
     return String.fromCharCode(code)
 }
 
-export const load_any = (mem: DataView, ptr: number): null => {
-    // TODO
-    return null
-}
-
 export const load_f32_array = (
     memory: WebAssembly.Memory,
     addr: number,
@@ -242,6 +237,142 @@ export const load_i32_array = (
     len: number,
 ): Int32Array => {
     return new Int32Array(memory.buffer, addr, len)
+}
+
+export const load_offset_b8 = (mem: DataView, offset: ByteOffset): boolean => {
+    return load_b8(mem, offset.off(1))
+}
+export const load_offset_bool = load_offset_b8
+export const load_offset_b16 = (mem: DataView, offset: ByteOffset): boolean => {
+    return load_b16(mem, offset.off(2))
+}
+export const load_offset_b32 = (mem: DataView, offset: ByteOffset): boolean => {
+    return load_b32(mem, offset.off(4))
+}
+export const load_offset_b64 = (mem: DataView, offset: ByteOffset): boolean => {
+    return load_b64(mem, offset.off(8))
+}
+export const load_offset_u8 = (mem: DataView, offset: ByteOffset): number => {
+    return load_u8(mem, offset.off(1))
+}
+export const load_offset_byte = load_offset_u8
+export const load_offset_i8 = (mem: DataView, offset: ByteOffset): number => {
+    return load_i8(mem, offset.off(1))
+}
+export const load_offset_u16 = (mem: DataView, offset: ByteOffset): number => {
+    return load_u16(mem, offset.off(2))
+}
+export const load_offset_i16 = (mem: DataView, offset: ByteOffset): number => {
+    return load_i16(mem, offset.off(2))
+}
+export const load_offset_u16le = (mem: DataView, offset: ByteOffset): number => {
+    return load_u16le(mem, offset.off(2))
+}
+export const load_offset_i16le = (mem: DataView, offset: ByteOffset): number => {
+    return load_i16le(mem, offset.off(2))
+}
+export const load_offset_u16be = (mem: DataView, offset: ByteOffset): number => {
+    return load_u16be(mem, offset.off(2))
+}
+export const load_offset_i16be = (mem: DataView, offset: ByteOffset): number => {
+    return load_i16be(mem, offset.off(2))
+}
+export const load_offset_u32 = (mem: DataView, offset: ByteOffset): number => {
+    return load_u32(mem, offset.off(4))
+}
+export const load_offset_i32 = (mem: DataView, offset: ByteOffset): number => {
+    return load_i32(mem, offset.off(4))
+}
+export const load_offset_u32le = (mem: DataView, offset: ByteOffset): number => {
+    return load_u32le(mem, offset.off(4))
+}
+export const load_offset_i32le = (mem: DataView, offset: ByteOffset): number => {
+    return load_i32le(mem, offset.off(4))
+}
+export const load_offset_u32be = (mem: DataView, offset: ByteOffset): number => {
+    return load_u32be(mem, offset.off(4))
+}
+export const load_offset_i32be = (mem: DataView, offset: ByteOffset): number => {
+    return load_i32be(mem, offset.off(4))
+}
+export const load_offset_uint = (mem: DataView, offset: ByteOffset): number => {
+    return load_uint(mem, offset.off(4))
+}
+export const load_offset_ptr = load_offset_uint
+export const load_offset_int = (mem: DataView, offset: ByteOffset): number => {
+    return load_int(mem, offset.off(4))
+}
+export const load_offset_u64 = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_u64(mem, offset.off(8))
+}
+export const load_offset_i64 = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_i64(mem, offset.off(8))
+}
+export const load_offset_u64le = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_u64le(mem, offset.off(8))
+}
+export const load_offset_i64le = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_i64le(mem, offset.off(8))
+}
+export const load_offset_u64be = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_u64be(mem, offset.off(8))
+}
+export const load_offset_i64be = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_i64be(mem, offset.off(8))
+}
+export const load_offset_u128 = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_u128(mem, offset.off(16))
+}
+export const load_offset_i128 = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_i128(mem, offset.off(16))
+}
+export const load_offset_u128le = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_u128le(mem, offset.off(16))
+}
+export const load_offset_i128le = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_i128le(mem, offset.off(16))
+}
+export const load_offset_u128be = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_u128be(mem, offset.off(16))
+}
+export const load_offset_i128be = (mem: DataView, offset: ByteOffset): bigint => {
+    return load_i128be(mem, offset.off(16))
+}
+export const load_offset_f16 = (mem: DataView, offset: ByteOffset): number => {
+    return load_f16(mem, offset.off(2))
+}
+export const load_offset_f16le = (mem: DataView, offset: ByteOffset): number => {
+    return load_f16le(mem, offset.off(2))
+}
+export const load_offset_f16be = (mem: DataView, offset: ByteOffset): number => {
+    return load_f16be(mem, offset.off(2))
+}
+export const load_offset_f32 = (mem: DataView, offset: ByteOffset): number => {
+    return load_f32(mem, offset.off(4))
+}
+export const load_offset_f32le = (mem: DataView, offset: ByteOffset): number => {
+    return load_f32le(mem, offset.off(4))
+}
+export const load_offset_f32be = (mem: DataView, offset: ByteOffset): number => {
+    return load_f32be(mem, offset.off(4))
+}
+export const load_offset_f64 = (mem: DataView, offset: ByteOffset): number => {
+    return load_f64(mem, offset.off(8))
+}
+export const load_offset_f64le = (mem: DataView, offset: ByteOffset): number => {
+    return load_f64le(mem, offset.off(8))
+}
+export const load_offset_f64be = (mem: DataView, offset: ByteOffset): number => {
+    return load_f64be(mem, offset.off(8))
+}
+export const load_offset_string = (mem: DataView, offset: ByteOffset): string => {
+    return load_string(mem, offset.off(8))
+}
+export const load_offset_cstring = (mem: DataView, offset: ByteOffset): string => {
+    return load_cstring(mem, offset.off(4))
+}
+export const load_offset_rune = (mem: DataView, offset: ByteOffset): string => {
+    return load_rune(mem, offset.off(4))
 }
 
 export const storeU8 = (mem: DataView, addr: number, value: number | boolean): void => {

@@ -1,4 +1,4 @@
-import {MemOffset, REG_SIZE} from './mem'
+import {ByteOffset, REG_SIZE} from './mem'
 import {odin_exports, wmi} from './runtime'
 
 export interface DomOdinExports {
@@ -20,7 +20,7 @@ const event_temp_data: {
 const listener_map = new Map<number, EventListener>()
 
 export function init_event_raw(event_ptr: number /*Event*/) {
-    const offset = new MemOffset(event_ptr)
+    const offset = new ByteOffset(event_ptr)
 
     const e = event_temp_data.event
 
