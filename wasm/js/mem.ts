@@ -579,26 +579,6 @@ export const load_f16be = (mem: DataView, addr: number): number => {
     return load_f16(mem, addr, false)
 }
 
-export const load_f32 = (mem: DataView, addr: number, le = little_endian): number => {
-    return mem.getFloat32(addr, le)
-}
-export const load_f32le = (mem: DataView, addr: number): number => {
-    return mem.getFloat32(addr, true)
-}
-export const load_f32be = (mem: DataView, addr: number): number => {
-    return mem.getFloat32(addr, false)
-}
-
-export const load_f64 = (mem: DataView, addr: number, le = little_endian): number => {
-    return mem.getFloat64(addr, le)
-}
-export const load_f64le = (mem: DataView, addr: number): number => {
-    return mem.getFloat64(addr, true)
-}
-export const load_f64be = (mem: DataView, addr: number): number => {
-    return mem.getFloat64(addr, false)
-}
-
 export const load_offset_f16 = (mem: DataView, offset: ByteOffset): number => {
     return load_f16(mem, offset.off(2))
 }
@@ -607,24 +587,6 @@ export const load_offset_f16le = (mem: DataView, offset: ByteOffset): number => 
 }
 export const load_offset_f16be = (mem: DataView, offset: ByteOffset): number => {
     return load_f16be(mem, offset.off(2))
-}
-export const load_offset_f32 = (mem: DataView, offset: ByteOffset): number => {
-    return load_f32(mem, offset.off(4))
-}
-export const load_offset_f32le = (mem: DataView, offset: ByteOffset): number => {
-    return load_f32le(mem, offset.off(4))
-}
-export const load_offset_f32be = (mem: DataView, offset: ByteOffset): number => {
-    return load_f32be(mem, offset.off(4))
-}
-export const load_offset_f64 = (mem: DataView, offset: ByteOffset): number => {
-    return load_f64(mem, offset.off(8))
-}
-export const load_offset_f64le = (mem: DataView, offset: ByteOffset): number => {
-    return load_f64le(mem, offset.off(8))
-}
-export const load_offset_f64be = (mem: DataView, offset: ByteOffset): number => {
-    return load_f64be(mem, offset.off(8))
 }
 
 export const store_f16 = (mem: DataView, ptr: number, value: number, le = little_endian): void => {
@@ -667,53 +629,105 @@ export const store_offset_f16 = (
 ): void => {
     store_f16(mem, offset.off(2), value, le)
 }
-export const store_f32 = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_f16le = (mem: DataView, ptr: number, value: number): void => {
+    store_f16(mem, ptr, value, true)
 }
-export const store_offset_f32 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_offset_f16le = (mem: DataView, offset: ByteOffset, value: number): void => {
+    store_f16(mem, offset.off(2), value, true)
 }
-export const store_f64 = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_f16be = (mem: DataView, ptr: number, value: number): void => {
+    store_f16(mem, ptr, value, false)
 }
-export const store_offset_f64 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_offset_f16be = (mem: DataView, offset: ByteOffset, value: number): void => {
+    store_f16(mem, offset.off(2), value, false)
 }
-export const store_f16le = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+
+export const load_f32 = (mem: DataView, addr: number, le = little_endian): number => {
+    return mem.getFloat32(addr, le)
 }
-export const store_offset_f16le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const load_f32le = (mem: DataView, addr: number): number => {
+    return mem.getFloat32(addr, true)
 }
-export const store_f32le = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const load_f32be = (mem: DataView, addr: number): number => {
+    return mem.getFloat32(addr, false)
 }
-export const store_offset_f32le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+
+export const load_offset_f32 = (mem: DataView, offset: ByteOffset): number => {
+    return load_f32(mem, offset.off(4))
 }
-export const store_f64le = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const load_offset_f32le = (mem: DataView, offset: ByteOffset): number => {
+    return load_f32le(mem, offset.off(4))
 }
-export const store_offset_f64le = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const load_offset_f32be = (mem: DataView, offset: ByteOffset): number => {
+    return load_f32be(mem, offset.off(4))
 }
-export const store_f16be = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+
+export const store_f32 = (mem: DataView, ptr: number, value: number, le = little_endian): void => {
+    mem.setFloat32(ptr, value, le)
 }
-export const store_offset_f16be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_offset_f32 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    mem.setFloat32(offset.off(4), value, le)
 }
-export const store_f32be = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_f32le = (mem: DataView, ptr: number, value: number): void => {
+    mem.setFloat32(ptr, value, true)
 }
-export const store_offset_f32be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_offset_f32le = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setFloat32(offset.off(4), value, true)
 }
-export const store_f64be = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_f32be = (mem: DataView, ptr: number, value: number): void => {
+    mem.setFloat32(ptr, value, false)
 }
-export const store_offset_f64be = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_offset_f32be = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setFloat32(offset.off(4), value, false)
+}
+
+export const load_f64 = (mem: DataView, addr: number, le = little_endian): number => {
+    return mem.getFloat64(addr, le)
+}
+export const load_f64le = (mem: DataView, addr: number): number => {
+    return mem.getFloat64(addr, true)
+}
+export const load_f64be = (mem: DataView, addr: number): number => {
+    return mem.getFloat64(addr, false)
+}
+
+export const load_offset_f64 = (mem: DataView, offset: ByteOffset): number => {
+    return load_f64(mem, offset.off(8))
+}
+export const load_offset_f64le = (mem: DataView, offset: ByteOffset): number => {
+    return load_f64le(mem, offset.off(8))
+}
+export const load_offset_f64be = (mem: DataView, offset: ByteOffset): number => {
+    return load_f64be(mem, offset.off(8))
+}
+
+export const store_f64 = (mem: DataView, ptr: number, value: number, le = little_endian): void => {
+    mem.setFloat64(ptr, value, le)
+}
+export const store_offset_f64 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    mem.setFloat64(offset.off(8), value, le)
+}
+export const store_f64le = (mem: DataView, ptr: number, value: number): void => {
+    mem.setFloat64(ptr, value, true)
+}
+export const store_offset_f64le = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setFloat64(offset.off(8), value, true)
+}
+export const store_f64be = (mem: DataView, ptr: number, value: number): void => {
+    mem.setFloat64(ptr, value, false)
+}
+export const store_offset_f64be = (mem: DataView, offset: ByteOffset, value: number): void => {
+    mem.setFloat64(offset.off(8), value, false)
 }
 
 export const load_bytes = (buffer: ArrayBufferLike, ptr: number, len: number): Uint8Array => {
