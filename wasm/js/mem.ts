@@ -627,11 +627,45 @@ export const load_offset_f64be = (mem: DataView, offset: ByteOffset): number => 
     return load_f64be(mem, offset.off(8))
 }
 
-export const store_f16 = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_f16 = (mem: DataView, ptr: number, value: number, le = little_endian): void => {
+    let biased_exponent = 0
+    let mantissa = 0
+    let sign = 0
+
+    if (isNaN(value)) {
+        biased_exponent = 31
+        mantissa = 1
+    } else if (value === Infinity) {
+        biased_exponent = 31
+    } else if (value === -Infinity) {
+        biased_exponent = 31
+        sign = 1
+    } else if (value === 0) {
+        biased_exponent = 0
+        mantissa = 0
+    } else {
+        if (value < 0) {
+            sign = 1
+            value = -value
+        }
+        const exponent = Math.min(Math.floor(Math.log2(value)), 15)
+        biased_exponent = exponent + 15
+        mantissa = Math.round((value / Math.pow(2, exponent) - 1) * 1024)
+    }
+
+    const lo = (sign << 7) | (biased_exponent << 2) | (mantissa >> 8)
+    const hi = mantissa & 0xff
+
+    mem.setUint8(ptr + 1 * (le as any), lo)
+    mem.setUint8(ptr + 1 * (!le as any), hi)
 }
-export const store_offset_f16 = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_offset_f16 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    store_f16(mem, offset.off(2), value, le)
 }
 export const store_f32 = (mem: DataView, ptr: number, value: unknown): void => {
     //

@@ -6,6 +6,6 @@
         "noEmit": true,
         "types": ["vite/client"]
     },
-    "include": ["src", "wasm"],
+    "include": ["src", "wasm", "vitest.setup.ts"],
     "references": [{"path": "./tsconfig.node.json"}, {"path": "./tsconfig.lib.json"}]
 }

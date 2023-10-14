@@ -1,7 +1,7 @@
 import unocss from 'unocss/vite'
-import * as vite from 'vite'
+import {defineConfig} from 'vitest/config'
 
-export default vite.defineConfig({
+export default defineConfig({
     server: {
         port: 3000,
         host: true,
@@ -11,4 +11,10 @@ export default vite.defineConfig({
         // congig in ./uno.config.ts
         unocss(),
     ],
+    test: {
+        watch: false,
+        environment: 'node',
+        isolate: false,
+        setupFiles: 'vitest.setup.ts',
+    },
 })

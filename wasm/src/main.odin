@@ -140,6 +140,37 @@ Post :: struct {
 }
 
 
+test_f16 :: proc() {
+	a := f16(1.2)
+	b := f16(-1.2)
+	c := f16(0.0)
+	d := f16(1.0)
+	e := f16(-1.0)
+	f := f16(-27.15625)
+	inf: f16 = transmute(f16)([2]byte{0x0, 0b01111100})
+	neg_inf: f16 = transmute(f16)([2]byte{0x0, 0b11111100})
+
+	fmt.printf(
+		"f16:\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n",
+		a,
+		(transmute([2]byte)(a)),
+		b,
+		(transmute([2]byte)(b)),
+		c,
+		(transmute([2]byte)(c)),
+		d,
+		(transmute([2]byte)(d)),
+		e,
+		(transmute([2]byte)(e)),
+		f,
+		(transmute([2]byte)(f)),
+		inf,
+		(transmute([2]byte)(inf)),
+		neg_inf,
+		(transmute([2]byte)(neg_inf)),
+	)
+}
+
 @(export)
 call_me :: proc "c" (ctx: ^runtime.Context) {
 	context = ctx^
@@ -169,6 +200,8 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 	from_storage := strings.to_string(sb)
 
 	fmt.println("from_storage", from_storage)
+
+	test_f16()
 
 	types := Types {
 		int     = -(123),
