@@ -36,21 +36,21 @@ const writeToConsole = function (fd: number, str: string): void {
 
 export const odin_env = {
     write: (fd: number, ptr: number, len: number): void => {
-        const str = mem.load_string_buffer(wasm_memory.buffer, ptr, len)
+        const str = mem.load_raw_string(wasm_memory.buffer, ptr, len)
         writeToConsole(fd, str)
     },
     trap: (): never => {
         throw new Error()
     },
     alert: (ptr: number, len: number): void => {
-        const str = mem.load_string_buffer(wasm_memory.buffer, ptr, len)
+        const str = mem.load_raw_string(wasm_memory.buffer, ptr, len)
         alert(str)
     },
     abort: (): never => {
         throw new Error('abort')
     },
     evaluate: (ptr: number, len: number) => {
-        const str = mem.load_string_buffer(wasm_memory.buffer, ptr, len)
+        const str = mem.load_raw_string(wasm_memory.buffer, ptr, len)
         void eval.call(null, str)
     },
 

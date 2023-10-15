@@ -42,13 +42,13 @@ const env = {
         /* title: string */
         const title_ptr = mem.load_uint(data, offset.off(mem.REG_SIZE))
         const title_len = mem.load_uint(data, offset.off(mem.REG_SIZE))
-        const title = mem.load_string_buffer(data.buffer, title_ptr, title_len)
+        const title = mem.load_raw_string(data.buffer, title_ptr, title_len)
         console.log('pass_my_post title:', title)
 
         /* content: string */
         const content_ptr = mem.load_uint(data, offset.off(mem.REG_SIZE))
         const content_len = mem.load_uint(data, offset.off(mem.REG_SIZE))
-        const content = mem.load_string_buffer(data.buffer, content_ptr, content_len)
+        const content = mem.load_raw_string(data.buffer, content_ptr, content_len)
         console.log('pass_my_post content:', content)
     },
     pass_types: (types_ptr: number, from_js_ptr: number): void => {

@@ -734,17 +734,16 @@ export const load_bytes = (buffer: ArrayBufferLike, ptr: number, len: number): U
     return new Uint8Array(buffer, ptr, len)
 }
 
-export const load_string_buffer = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
+export const load_raw_string = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
     const bytes = new Uint8Array(buffer, ptr, len)
     return new TextDecoder().decode(bytes)
 }
 export const load_string = (mem: DataView, ptr: number): string => {
     const len = load_u32(mem, ptr + REG_SIZE)
     ptr = load_ptr(mem, ptr)
-    return load_string_buffer(mem.buffer, ptr, len)
+    return load_raw_string(mem.buffer, ptr, len)
 }
-export const load_cstring = (mem: DataView, ptr: number): string => {
-    ptr = load_ptr(mem, ptr)
+export const load_raw_cstring = (mem: DataView, ptr: number): string => {
     let str = '',
         c: number
     while ((c = mem.getUint8(ptr))) {
@@ -752,6 +751,10 @@ export const load_cstring = (mem: DataView, ptr: number): string => {
         ptr++
     }
     return str
+}
+export const load_cstring = (mem: DataView, ptr: number): string => {
+    ptr = load_ptr(mem, ptr)
+    return load_raw_cstring(mem, ptr)
 }
 export const load_rune = (mem: DataView, ptr: number): string => {
     const code = load_u32(mem, ptr)
@@ -768,95 +771,53 @@ export const load_offset_rune = (mem: DataView, offset: ByteOffset): string => {
     return load_rune(mem, offset.off(4))
 }
 
-export const store_string = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_raw_string = (buffer: ArrayBufferLike, addr: number, value: string): void => {
+    const bytes = load_bytes(buffer, addr, value.length)
+    void new TextEncoder().encodeInto(value, bytes)
 }
-export const store_offset_string = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_string = (mem: DataView, ptr: number, value: string): void => {
+    console.warn('store_string not implemented')
+    store_u32(mem, ptr, 0)
+    store_u32(mem, ptr + 4, 0)
 }
-export const store_cstring = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_offset_string = (mem: DataView, offset: ByteOffset, value: string): void => {
+    store_string(mem, offset.off(8), value)
 }
-export const store_offset_cstring = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_raw_cstring = (mem: DataView, ptr: number, value: string): void => {
+    store_raw_string(mem.buffer, ptr, value)
+    mem.setUint8(ptr + value.length, 0)
 }
-export const store_rune = (mem: DataView, ptr: number, value: unknown): void => {
-    //
+export const store_cstring = (mem: DataView, ptr: number, value: string): void => {
+    console.warn('store_cstring not implemented')
+    store_u32(mem, ptr, 0)
 }
-export const store_offset_rune = (mem: DataView, offset: ByteOffset, value: unknown): void => {
-    //
+export const store_offset_cstring = (mem: DataView, offset: ByteOffset, value: string): void => {
+    store_cstring(mem, offset.off(4), value)
+}
+export const store_rune = (mem: DataView, ptr: number, value: string): void => {
+    store_u32(mem, ptr, value.charCodeAt(0))
+}
+export const store_offset_rune = (mem: DataView, offset: ByteOffset, value: string): void => {
+    store_rune(mem, offset.off(4), value)
 }
 
 export const load_f32_array = (
-    memory: WebAssembly.Memory,
+    buffer: ArrayBufferLike,
     addr: number,
     len: number,
 ): Float32Array => {
-    return new Float32Array(memory.buffer, addr, len)
+    return new Float32Array(buffer, addr, len)
 }
 export const load_f64_array = (
-    memory: WebAssembly.Memory,
+    buffer: ArrayBufferLike,
     addr: number,
     len: number,
 ): Float64Array => {
-    return new Float64Array(memory.buffer, addr, len)
+    return new Float64Array(buffer, addr, len)
 }
-export const load_u32_array = (
-    memory: WebAssembly.Memory,
-    addr: number,
-    len: number,
-): Uint32Array => {
-    return new Uint32Array(memory.buffer, addr, len)
+export const load_u32_array = (buffer: ArrayBufferLike, addr: number, len: number): Uint32Array => {
+    return new Uint32Array(buffer, addr, len)
 }
-export const load_i32_array = (
-    memory: WebAssembly.Memory,
-    addr: number,
-    len: number,
-): Int32Array => {
-    return new Int32Array(memory.buffer, addr, len)
-}
-
-export const storeU8 = (mem: DataView, addr: number, value: number | boolean): void => {
-    mem.setUint8(addr, value as number)
-}
-export const storeI8 = (mem: DataView, addr: number, value: number): void => {
-    mem.setInt8(addr, value)
-}
-export const storeU16 = (mem: DataView, addr: number, value: number): void => {
-    mem.setUint16(addr, value, true)
-}
-export const storeI16 = (mem: DataView, addr: number, value: number): void => {
-    mem.setInt16(addr, value, true)
-}
-export const storeU32 = (mem: DataView, addr: number, value: number): void => {
-    mem.setUint32(addr, value, true)
-}
-export const storeI32 = (mem: DataView, addr: number, value: number): void => {
-    mem.setInt32(addr, value, true)
-}
-export const storeU64 = (mem: DataView, addr: number, value: number): void => {
-    mem.setUint32(addr, value, true)
-    mem.setUint32(addr + 4, Math.floor(value / 4294967296), true)
-}
-export const storeI64 = (mem: DataView, addr: number, value: number): void => {
-    // TODO(bill): storeI64 correctly
-    mem.setUint32(addr, value, true)
-    mem.setUint32(addr + 4, Math.floor(value / 4294967296), true)
-}
-export const storeF32 = (mem: DataView, addr: number, value: number): void => {
-    mem.setFloat32(addr, value, true)
-}
-export const storeF64 = (mem: DataView, addr: number, value: number): void => {
-    mem.setFloat64(addr, value, true)
-}
-export const storeInt = (mem: DataView, addr: number, value: number): void => {
-    mem.setInt32(addr, value, true)
-}
-export const storeUint = (mem: DataView, addr: number, value: number): void => {
-    mem.setUint32(addr, value, true)
-}
-
-export const storeString = (buffer: ArrayBufferLike, addr: number, value: string): void => {
-    const bytes = load_bytes(buffer, addr, value.length)
-    void new TextEncoder().encodeInto(value, bytes)
+export const load_i32_array = (buffer: ArrayBufferLike, addr: number, len: number): Int32Array => {
+    return new Int32Array(buffer, addr, len)
 }

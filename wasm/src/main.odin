@@ -129,46 +129,12 @@ main :: proc() {
 	fmt.printf("Hello, world!\n\tptr_size: %d \n\talloc: %v\n", size_of(rawptr), global_allocator)
 
 	ls_set("test", "test_value")
-
-
 }
 
 Post :: struct {
 	id:      int,
 	title:   string,
 	content: string,
-}
-
-
-test_f16 :: proc() {
-	a := f16(1.2)
-	b := f16(-1.2)
-	c := f16(0.0)
-	d := f16(1.0)
-	e := f16(-1.0)
-	f := f16(-27.15625)
-	inf: f16 = transmute(f16)([2]byte{0x0, 0b01111100})
-	neg_inf: f16 = transmute(f16)([2]byte{0x0, 0b11111100})
-
-	fmt.printf(
-		"f16:\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n\t%f; %b\n",
-		a,
-		(transmute([2]byte)(a)),
-		b,
-		(transmute([2]byte)(b)),
-		c,
-		(transmute([2]byte)(c)),
-		d,
-		(transmute([2]byte)(d)),
-		e,
-		(transmute([2]byte)(e)),
-		f,
-		(transmute([2]byte)(f)),
-		inf,
-		(transmute([2]byte)(inf)),
-		neg_inf,
-		(transmute([2]byte)(neg_inf)),
-	)
 }
 
 @(export)
@@ -193,22 +159,18 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 	pass_my_post(&post)
 
 
-	ls_buf := make([]byte, 100)
-	len := ls_get("test", ls_buf)
-	sb := strings.builder_make()
-	strings.write_bytes(&sb, ls_buf[:len])
-	from_storage := strings.to_string(sb)
+	ls_buf: [128]byte
+	len := ls_get("test", ls_buf[:])
+	from_storage := string(ls_buf[:len])
 
 	fmt.println("from_storage", from_storage)
 
-	test_f16()
-
 	types := Types {
-		int     = -(123),
-		i8      = -(123),
-		i16     = -(123),
-		i32     = -(123),
-		i64     = -(123),
+		int     = -123,
+		i8      = -123,
+		i16     = -123,
+		i32     = -123,
+		i64     = -123,
 		i128    = (0x10000000000000000000000000000000),
 		uint    = 69,
 		u8      = 188,
@@ -217,17 +179,17 @@ call_me :: proc "c" (ctx: ^runtime.Context) {
 		u64     = 123,
 		u128    = 123,
 		uintptr = 123,
-		i16le   = -(123),
-		i32le   = -(123),
-		i64le   = -(123),
-		i128le  = -(123),
+		i16le   = -123,
+		i32le   = -123,
+		i64le   = -123,
+		i128le  = -123,
 		u16le   = 123,
 		u32le   = 123,
 		u64le   = 123,
 		u128le  = 123,
-		i16be   = -(123),
-		i32be   = -(123),
-		i64be   = -(123),
+		i16be   = -123,
+		i32be   = -123,
+		i64be   = -123,
 		i128be  = -(0x10000000000000000000000000000000),
 		u16be   = 123,
 		u32be   = 123,
