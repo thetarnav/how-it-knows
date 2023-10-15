@@ -347,11 +347,16 @@ export const load_offset_i64be = (mem: DataView, offset: ByteOffset): bigint => 
     return load_i64be(mem, offset.off(8))
 }
 
-export const store_u64 = (mem: DataView, ptr: number, value: bigint): void => {
-    mem.setBigUint64(ptr, value, little_endian)
+export const store_u64 = (mem: DataView, ptr: number, value: bigint, le = little_endian): void => {
+    mem.setBigUint64(ptr, value, le)
 }
-export const store_offset_u64 = (mem: DataView, offset: ByteOffset, value: bigint): void => {
-    mem.setBigUint64(offset.off(8), value, little_endian)
+export const store_offset_u64 = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: bigint,
+    le = little_endian,
+): void => {
+    mem.setBigUint64(offset.off(8), value, le)
 }
 export const store_i64 = (mem: DataView, ptr: number, value: bigint, le = little_endian): void => {
     mem.setBigInt64(ptr, value, le)
@@ -433,7 +438,7 @@ export const store_i64_number = (
     le = little_endian,
 ): void => {
     mem.setInt32(ptr + 4 * (!le as any), value, le)
-    mem.setInt32(ptr + 4 * (le as any), Math.floor(value / 4294967296), le)
+    mem.setInt32(ptr + 4 * (le as any), value >> 32, le)
 }
 export const store_offset_i64_number = (
     mem: DataView,
@@ -507,7 +512,7 @@ export const load_offset_i128be = (mem: DataView, offset: ByteOffset): bigint =>
 }
 
 export const store_u128 = (mem: DataView, ptr: number, value: bigint, le = little_endian): void => {
-    mem.setBigUint64(ptr + 8 * (!le as any), value & 0xffffffffffffffffn, le)
+    mem.setBigUint64(ptr + 8 * (!le as any), value & 0xff_ff_ff_ff_ff_ff_ff_ffn, le)
     mem.setBigUint64(ptr + 8 * (le as any), value >> 64n, le)
 }
 export const store_offset_u128 = (
@@ -519,7 +524,7 @@ export const store_offset_u128 = (
     store_u128(mem, offset.off(16), value, le)
 }
 export const store_i128 = (mem: DataView, ptr: number, value: bigint, le = little_endian): void => {
-    mem.setBigUint64(ptr + 8 * (!le as any), value & 0xffffffffffffffffn, le)
+    mem.setBigUint64(ptr + 8 * (!le as any), value & 0xff_ff_ff_ff_ff_ff_ff_ffn, le)
     mem.setBigInt64(ptr + 8 * (le as any), value >> 64n, le)
 }
 export const store_offset_i128 = (
