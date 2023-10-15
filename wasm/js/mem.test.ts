@@ -51,11 +51,11 @@ void vi.describe('f16', () => {
 void vi.describe('u64', () => {
     // prettier-ignore
     const pairs:
-        [v: bigint  , bits: bigint              ][] = [
-        [0n         , 0x00_00_00_00_00_00_00_00n],
-        [1n         , 0x00_00_00_00_00_00_00_01n],
-        [256n       , 0x00_00_00_00_00_00_01_00n],
-        [1n   << 63n, 0x80_00_00_00_00_00_00_00n],
+        [v: bigint, bits: bigint              ][] = [
+        [0n       , 0x00_00_00_00_00_00_00_00n],
+        [1n       , 0x00_00_00_00_00_00_00_01n],
+        [256n     , 0x00_00_00_00_00_00_01_00n],
+        [1n << 63n, 0x80_00_00_00_00_00_00_00n],
     ]
 
     const data = new DataView(new ArrayBuffer(8))
@@ -64,14 +64,52 @@ void vi.describe('u64', () => {
         for (const endian of ['le', 'be'] as const) {
             const le = endian === 'le'
 
-            vi.it(`${endian}: loads ${v}`, () => {
+            vi.it(`${endian}: loads ${v} bigint`, () => {
                 data.setBigUint64(0, bits, le)
                 const loaded = mem.load_u64(data, 0, le)
                 vi.expect(loaded).toBe(v)
             })
 
-            vi.it(`${endian}: stores ${v}`, () => {
+            vi.it(`${endian}: stores ${v} bigint`, () => {
                 mem.store_u64(data, 0, v, le)
+                const loaded = data.getBigUint64(0, le)
+                vi.expect(loaded).toBe(bits)
+            })
+        }
+    }
+})
+
+void vi.describe('i64', () => {
+    // prettier-ignore
+    const pairs:
+        [v: bigint        , bits: bigint              ][] = [
+        [  0n             , 0x00_00_00_00_00_00_00_00n],
+        [  1n             , 0x00_00_00_00_00_00_00_01n],
+        [ -1n             , 0xFF_FF_FF_FF_FF_FF_FF_FFn],
+        [  2n             , 0x00_00_00_00_00_00_00_02n],
+        [ -2n             , 0xFF_FF_FF_FF_FF_FF_FF_FEn],
+        [  1n << 32n      , 0x00_00_00_01_00_00_00_00n],
+        [  2n << 32n      , 0x00_00_00_02_00_00_00_00n],
+        [ (2n << 32n) - 1n, 0x00_00_00_01_FF_FF_FF_FFn],
+        [-(1n << 32n)     , 0xFF_FF_FF_FF_00_00_00_00n],
+        [-(2n << 32n) + 1n, 0xFF_FF_FF_FE_00_00_00_01n],
+        [-(2n << 32n) - 1n, 0xFF_FF_FF_FD_FF_FF_FF_FFn],
+    ]
+
+    const data = new DataView(new ArrayBuffer(8))
+
+    for (const [v, bits] of pairs) {
+        for (const endian of ['le', 'be'] as const) {
+            const le = endian === 'le'
+
+            vi.it(`${endian}: loads ${v} bigint`, () => {
+                data.setBigUint64(0, bits, le)
+                const loaded = mem.load_i64(data, 0, le)
+                vi.expect(loaded).toBe(v)
+            })
+
+            vi.it(`${endian}: stores ${v} bigint`, () => {
+                mem.store_i64(data, 0, v, le)
                 const loaded = data.getBigUint64(0, le)
                 vi.expect(loaded).toBe(bits)
             })
