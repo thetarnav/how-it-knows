@@ -1,5 +1,6 @@
-import {scheduleRender} from './index.js'
-import * as rtc from './rtc'
+import * as message from './message.js'
+import * as rtc from './rtc.js'
+import * as update from './update.js'
 
 interface RootState {
     count: number
@@ -20,7 +21,7 @@ function makeRoot(): RootState {
 
     button_el.addEventListener('click', () => {
         state.count++
-        scheduleRender(() => renderRoot(state))
+        update.scheduleRender(() => renderRoot(state))
     })
 
     const app = makeApp()
@@ -50,9 +51,9 @@ interface App {
     peers_el: HTMLElement
     rendered_peers: rtc.PeerState[]
     rendered_peer_els: HTMLElement[]
-    posts: rtc.PostMessage[]
+    posts: message.PostMessage[]
     posts_el: HTMLElement
-    rendered_posts: rtc.PostMessage[]
+    rendered_posts: message.PostMessage[]
     rendered_post_els: HTMLElement[]
 }
 
@@ -60,7 +61,7 @@ function makeApp(): App {
     const ws = new WebSocket('ws://' + location.hostname + ':8080/rtc')
     // ? how to do cleanups?
 
-    const own_id = localStorage.getItem('id') || rtc.randomId()
+    const own_id = localStorage.getItem('id') || message.randomId()
     localStorage.setItem('id', own_id)
 
     const hive: rtc.HiveState = {
@@ -70,24 +71,24 @@ function makeApp(): App {
             ws.send(JSON.stringify(message))
         },
         onPeerMessage: (peer, data) => {
-            const msg = rtc.parsePeerMessage(data)
+            const msg = message.parsePeerMessage(data)
             if (!msg) return
 
-            rtc.handlePeerMessage(peer, msg, state.posts, posts => {
+            message.handlePeerMessage(peer, msg, state.posts, posts => {
                 state.posts = posts
-                scheduleRender(() => renderAppPosts(state))
-                rtc.storePostMessages(posts)
+                update.scheduleRender(() => renderAppPosts(state))
+                message.storePostMessages(posts)
             })
         },
         onPeerConnect: peer => {
             state.peers.push(peer)
-            scheduleRender(() => renderAppPeers(state))
+            update.scheduleRender(() => renderAppPeers(state))
 
             /*
                 Send all stored posts to the peer at connection start
                 this way the peer will know which posts it can request
             */
-            rtc.peerSendMessage(peer, {
+            message.peerSendMessage(peer, {
                 type: 'stored_posts',
                 data: state.posts.map(m => m.id),
             })
@@ -102,7 +103,7 @@ function makeApp(): App {
             }
 
             state.peers.splice(state.peers.indexOf(peer), 1)
-            scheduleRender(() => renderAppPeers(state))
+            update.scheduleRender(() => renderAppPeers(state))
         },
     }
 
@@ -115,16 +116,16 @@ function makeApp(): App {
     })
 
     function submitMessage(content: string) {
-        const post = rtc.makePostMessage(own_id, content)
+        const post = message.makePostMessage(own_id, content)
         for (const peer of hive.peers) {
-            rtc.peerSendMessage(peer, {
+            message.peerSendMessage(peer, {
                 type: 'posts',
                 data: [post],
             })
         }
         state.posts.push(post)
-        scheduleRender(() => renderAppPosts(state))
-        rtc.storePostMessage(post)
+        update.scheduleRender(() => renderAppPosts(state))
+        message.storePostMessage(post)
     }
 
     const el = document.createElement('div')
@@ -141,7 +142,7 @@ function makeApp(): App {
     clear_button.addEventListener('click', () => {
         localStorage.clear()
         state.posts.length = 0
-        scheduleRender(() => renderAppPosts(state))
+        update.scheduleRender(() => renderAppPosts(state))
     })
 
     void el.appendChild(document.createElement('br'))
@@ -198,7 +199,7 @@ function makeApp(): App {
         peers_el: peers_list,
         rendered_peers: [],
         rendered_peer_els: [],
-        posts: rtc.getAllPostMessages(),
+        posts: message.getAllPostMessages(),
         posts_el: posts_list,
         rendered_posts: [],
         rendered_post_els: [],
@@ -270,4 +271,11 @@ function renderAppPosts(state: App): void {
         const post_el = rendered_post_els.splice(i, 1)[0]!
         void post_el.remove()
     }
+}
+
+export function formatTimestamp(timestamp: number): string {
+    const date = new Date(timestamp)
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    return `${hours}:${minutes}`
 }
