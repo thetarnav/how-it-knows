@@ -1,5 +1,5 @@
 import {set} from './lib'
-import type {PeerState} from './rtc'
+import * as rtc from './rtc'
 
 export interface PostMessage {
     /**
@@ -104,14 +104,14 @@ export function parsePeerMessage(string: string): PeerMessage | undefined {
     return
 }
 
-export function peerSendMessage(peer: PeerState, post: PeerMessage): void {
+export function peerSendMessage(peer: rtc.PeerState, post: PeerMessage): void {
     if (peer.out_channel.readyState !== 'open') return
     const data = JSON.stringify(post)
     peer.out_channel.send(data)
 }
 
 export function handlePeerMessage(
-    peer: PeerState,
+    peer: rtc.PeerState,
     msg: PeerMessage,
     own_posts: PostMessage[],
     updatePosts: (posts: PostMessage[]) => void,

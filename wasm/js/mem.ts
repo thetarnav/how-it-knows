@@ -701,9 +701,16 @@ export const load_offset_rune = (mem: DataView, offset: ByteOffset): string => {
     return load_rune(mem, offset.off(4))
 }
 
-export const store_raw_string = (buffer: ArrayBufferLike, addr: number, value: string): void => {
-    const bytes = load_bytes(buffer, addr, value.length)
+export const store_raw_string = (
+    buffer: ArrayBufferLike,
+    addr: number,
+    length: number,
+    value: string,
+): number => {
+    length = Math.min(length, value.length)
+    const bytes = load_bytes(buffer, addr, length)
     void new TextEncoder().encodeInto(value, bytes)
+    return length
 }
 export const store_string = (mem: DataView, ptr: number, value: string): void => {
     console.warn('store_string not implemented')
@@ -714,7 +721,7 @@ export const store_offset_string = (mem: DataView, offset: ByteOffset, value: st
     store_string(mem, offset.off(8), value)
 }
 export const store_raw_cstring = (mem: DataView, ptr: number, value: string): void => {
-    store_raw_string(mem.buffer, ptr, value)
+    void store_raw_string(mem.buffer, ptr, value.length, value)
     mem.setUint8(ptr + value.length, 0)
 }
 export const store_cstring = (mem: DataView, ptr: number, value: string): void => {

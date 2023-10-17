@@ -1,3 +1,4 @@
+import * as wasm from '../wasm/js/runtime.js'
 import * as message from './message.js'
 import * as rtc from './rtc.js'
 import * as update from './update.js'
@@ -155,8 +156,11 @@ function makeApp(): App {
     void el.appendChild(form)
     form.addEventListener('submit', e => {
         e.preventDefault()
-        submitMessage(input.value)
+        const val = input.value.trim()
         input.value = ''
+
+        submitMessage(val)
+        wasm.storeOwnPost(val)
     })
 
     const input = document.createElement('input')
