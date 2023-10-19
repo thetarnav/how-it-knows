@@ -71,8 +71,17 @@ export interface PeerState {
     interval: number
 }
 
-onerror = (_, source, lineno, colno, error) =>
-    alert(`Error: ${error && error.message}\nSource: ${source}\nLine: ${lineno}\nColumn: ${colno}`)
+/*
+    Error messages on mobile
+*/
+if (matchMedia('(hover: none)').matches) {
+    onerror = (_, source, lineno, colno, error) =>
+        alert(
+            `Error: ${
+                error && error.message
+            }\nSource: ${source}\nLine: ${lineno}\nColumn: ${colno}`,
+        )
+}
 
 export function makePeerState(hive: HiveState, id: string): PeerState {
     const peer: PeerState = {

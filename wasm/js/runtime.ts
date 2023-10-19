@@ -20,7 +20,7 @@ export type OdinExports = {
 
 let string_to_pass: string | null = null
 
-const pass_string = (buf_ptr: number, buf_len: number): number => {
+const load_last_string = (buf_ptr: number, buf_len: number): number => {
     if (string_to_pass === null) throw new Error('string_to_pass is null')
 
     const str = string_to_pass
@@ -35,7 +35,7 @@ export const storeOwnPost = (content: string): void => {
 }
 
 const env = {
-    pass_string: pass_string,
+    load_last_string: load_last_string,
 }
 
 export let wasm_memory: WebAssembly.Memory

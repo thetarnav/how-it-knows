@@ -1,5 +1,5 @@
 //+build js
-package wasm
+package hive
 
 import "core:intrinsics"
 import "core:mem"
