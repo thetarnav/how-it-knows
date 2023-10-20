@@ -13,8 +13,9 @@ Post :: struct {
 	content:   string,
 }
 
-ptr_move :: proc(ptr: rawptr, offset: uint) -> rawptr {
-	return rawptr((uintptr(ptr) + uintptr(offset)))
+serialize_post :: proc(s: ^serialize.Serializer, post: ^Post) {
+	serialize.serialize_number(s, &post.timestamp)
+	serialize.serialize_string(s, &post.content)
 }
 
 timestamp_now :: proc() -> i64 {
@@ -23,50 +24,35 @@ timestamp_now :: proc() -> i64 {
 
 @(export)
 store_own_post :: proc(content_length: uint) {
-
 	context.allocator = mem.arena_allocator(&{data = temp_buf})
 
-	fmt.println(context.temp_allocator)
-
 	buf: [1024]byte
-
-	timestamp := timestamp_now()
-
-
-	// mem.copy(&buf, &timestamp, 8)
-
 	len := load_last_string(buf[:])
 	content := string(buf[:len])
 
-	fmt.println(content, timestamp)
-
-	// post := Post {
-	// 	content   = content,
-	// 	timestamp = timestamp,
-	// }
+	post := Post {
+		content   = content,
+		timestamp = timestamp_now(),
+	}
 
 	s: serialize.Serializer
 	serialize.serializer_init_writer(&s)
 
-	serialize.serialize_string(&s, &content)
-	serialize.serialize_number(&s, &timestamp)
+	serialize_post(&s, &post)
 
 	ls_set_bytes("HEY", s.data[:])
+}
 
-	read_buf: [1024]byte
+read_post :: proc() {
+	buf: [1024]byte
+	len := ls_get_bytes("HEY", buf[:])
 
-	read_len := ls_get_bytes("HEY", read_buf[:])
+	s: serialize.Serializer
+	serialize.serializer_init_reader(&s, buf[:len])
 
-	read_buf_slice := read_buf[:read_len]
+	post: Post
 
-	s_read: serialize.Serializer
-	serialize.serializer_init_reader(&s_read, read_buf[:])
+	serialize_post(&s, &post)
 
-	content_read: string
-	timestamp_read: i64
-
-	serialize.serialize_string(&s_read, &content_read)
-	serialize.serialize_number(&s_read, &timestamp_read)
-
-	fmt.println(content_read, timestamp_read)
+	fmt.println(post.content, post.timestamp)
 }
