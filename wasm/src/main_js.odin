@@ -28,9 +28,13 @@ foreign import "local_storage"
 
 @(default_calling_convention = "contextless")
 foreign local_storage {
-	ls_get :: proc(key: string, value: []byte) -> uint ---
-	ls_set :: proc(key: string, value: string) ---
+	ls_key :: proc(index: uint, key: []byte) -> uint ---
+	ls_get_bytes :: proc(key: string, value: []byte) -> uint ---
+	ls_set_bytes :: proc(key: string, value: []byte) ---
+	ls_get_string :: proc(key: string, value: []byte) -> uint ---
+	ls_set_string :: proc(key: string, value: []byte) ---
 	ls_remove :: proc(key: string) ---
+	ls_length :: proc() -> uint ---
 	ls_clear :: proc() ---
 }
 
