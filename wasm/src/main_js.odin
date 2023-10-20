@@ -41,9 +41,14 @@ foreign local_storage {
 global_allocator := page_allocator()
 temp_buf: []byte
 
+
 main :: proc() {
 	context.allocator = global_allocator
 
 	_temp_buf, err := alloc_pages(1)
 	temp_buf = _temp_buf
+
+	subscribe(proc() {
+		fmt.println("heyyyyy!!!")
+	})
 }
