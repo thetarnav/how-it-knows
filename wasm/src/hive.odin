@@ -22,37 +22,6 @@ timestamp_now :: proc() -> i64 {
 	return time.now()._nsec / 1e6
 }
 
-Callback :: proc()
-
-callbacks_buf: [1024]Callback
-callbacks_offset: int
-
-subscribe :: proc(callback: Callback) -> (err: mem.Allocator_Error) {
-	if callbacks_offset == len(callbacks_buf) {
-		return mem.Allocator_Error.Out_Of_Memory
-	}
-
-	callbacks_buf[callbacks_offset] = callback
-	callbacks_offset += 1
-
-	return
-}
-
-unsubscribe :: proc(callback: Callback) -> (ok: bool) {
-	idx := slice.linear_search(callbacks_buf[:callbacks_offset], callback) or_return
-
-	callbacks_offset -= 1
-	callbacks_buf[idx] = callbacks_buf[callbacks_offset]
-
-	return true
-}
-
-publish :: proc() {
-	for callback in callbacks_buf[:callbacks_offset] {
-		callback()
-	}
-}
-
 @(export)
 store_own_post :: proc(content_length: uint) {
 	context.allocator = mem.arena_allocator(&{data = temp_buf})
