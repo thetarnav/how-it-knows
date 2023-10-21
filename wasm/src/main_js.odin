@@ -53,11 +53,7 @@ main :: proc() {
 	my_int := new(int)
 	my_int^ = 5
 
-	fmt.printf("my int ptr %d\n", my_int)
-
-	cb :: proc(data_ptr: rawptr) {
-		my_int := (^int)(data_ptr)
-		fmt.printf("my int ptr from ctx %d\n", data_ptr)
+	cb :: proc(my_int: ^int) {
 		fmt.printf("heyyyyy!!! %d\n", my_int^)
 
 		unsubscribe(cb)
