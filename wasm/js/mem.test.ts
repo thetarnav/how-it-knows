@@ -68,13 +68,13 @@ void vi.describe('u64', () => {
         for (const endian of ['le', 'be'] as const) {
             const le = endian === 'le'
 
-            vi.it(`${endian}: loads ${v} bigint`, () => {
+            vi.it(`${endian}: loads ${v}`, () => {
                 data.setBigUint64(0, bits, le)
                 const loaded = mem.load_u64(data, 0, le)
                 vi.expect(loaded).toBe(v)
             })
 
-            vi.it(`${endian}: stores ${v} bigint`, () => {
+            vi.it(`${endian}: stores ${v}`, () => {
                 mem.store_u64(data, 0, v, le)
                 const loaded = data.getBigUint64(0, le)
                 vi.expect(loaded).toBe(bits)
@@ -100,13 +100,13 @@ void vi.describe('u64 number', () => {
         for (const endian of ['le', 'be'] as const) {
             const le = endian === 'le'
 
-            vi.it(`${endian}: loads ${v} bigint`, () => {
+            vi.it(`${endian}: loads ${v}`, () => {
                 data.setBigUint64(0, bits, le)
                 const loaded = mem.load_u64_number(data, 0, le)
                 vi.expect(loaded).toBe(v)
             })
 
-            vi.it(`${endian}: stores ${v} bigint`, () => {
+            vi.it(`${endian}: stores ${v}`, () => {
                 mem.store_u64_number(data, 0, v, le)
                 const loaded = data.getBigUint64(0, le)
                 vi.expect(loaded).toBe(bits)
@@ -138,13 +138,13 @@ void vi.describe('i64', () => {
         for (const endian of ['le', 'be'] as const) {
             const le = endian === 'le'
 
-            vi.it(`${endian}: loads ${v} bigint`, () => {
+            vi.it(`${endian}: loads ${v}`, () => {
                 data.setBigUint64(0, bits, le)
                 const loaded = mem.load_i64(data, 0, le)
                 vi.expect(loaded).toBe(v)
             })
 
-            vi.it(`${endian}: stores ${v} bigint`, () => {
+            vi.it(`${endian}: stores ${v}`, () => {
                 mem.store_i64(data, 0, v, le)
                 const loaded = data.getBigUint64(0, le)
                 vi.expect(loaded).toBe(bits)
@@ -163,9 +163,9 @@ void vi.describe('i64 number', () => {
         [ 2               , 0x00_00_00_00_00_00_00_02n],
         [-2               , 0xFF_FF_FF_FF_FF_FF_FF_FEn],
         [ 256             , 0x00_00_00_00_00_00_01_00n],
-        [ -256            , 0xFF_FF_FF_FF_FF_FF_FF_00n],
+        [-256             , 0xFF_FF_FF_FF_FF_FF_FF_00n],
         [ 1697990142353   , 0x00_00_01_8B_58_19_69_91n],
-        [ -1697990142353  , 0xFF_FF_FE_74_A7_E6_96_6Fn],
+        [-1697990142353   , 0xFF_FF_FE_74_A7_E6_96_6Fn],
         [ 9007199254740980, 0x00_1F_FF_FF_FF_FF_FF_F4n],
         [-9007199254740980, 0xFF_E0_00_00_00_00_00_0Cn],
     ]
@@ -176,13 +176,13 @@ void vi.describe('i64 number', () => {
         for (const endian of ['le', 'be'] as const) {
             const le = endian === 'le'
 
-            vi.it(`${endian}: loads ${v} bigint`, () => {
+            vi.it(`${endian}: loads ${v}`, () => {
                 data.setBigUint64(0, bits, le)
                 const loaded = mem.load_i64_number(data, 0, le)
                 vi.expect(loaded).toBe(v)
             })
 
-            vi.it(`${endian}: stores ${v} bigint`, () => {
+            vi.it(`${endian}: stores ${v}`, () => {
                 mem.store_i64_number(data, 0, v, le)
                 const loaded = data.getBigUint64(0, le)
                 vi.expect(loaded).toBe(bits)
