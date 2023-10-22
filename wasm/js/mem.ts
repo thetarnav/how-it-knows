@@ -664,6 +664,10 @@ export const load_bytes = (buffer: ArrayBufferLike, ptr: number, len: number): U
     return new Uint8Array(buffer, ptr, len)
 }
 
+export const load_bytes_string = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
+    const bytes = new Uint8Array(buffer, ptr, len)
+    return String.fromCharCode(...bytes)
+}
 export const load_raw_string = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
     const bytes = new Uint8Array(buffer, ptr, len)
     return new TextDecoder().decode(bytes)
@@ -701,6 +705,17 @@ export const load_offset_rune = (mem: DataView, offset: ByteOffset): string => {
     return load_rune(mem, offset.off(4))
 }
 
+export const store_bytes_string = (
+    buffer: ArrayBufferLike,
+    ptr: number,
+    len: number,
+    str: string,
+): void => {
+    const bytes = new Uint8Array(buffer, ptr, len)
+    for (let i = 0; i < str.length; i++) {
+        bytes[i] = str.charCodeAt(i)
+    }
+}
 export const store_raw_string = (
     buffer: ArrayBufferLike,
     addr: number,

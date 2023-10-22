@@ -31,7 +31,7 @@ LS_KEY_PREFIX :: "post_"
 LS_KEY_PREFIX_LEN :: len(LS_KEY_PREFIX)
 
 make_ls_key :: proc(timestamp: i64) -> string {
-	buf: [LS_KEY_PREFIX_LEN + 8]byte = {}
+	buf: [LS_KEY_PREFIX_LEN + 8]byte
 	copy(buf[:], LS_KEY_PREFIX)
 	timestamp_bytes := transmute([8]byte)(i64le(timestamp))
 	copy(buf[LS_KEY_PREFIX_LEN:], timestamp_bytes[:])

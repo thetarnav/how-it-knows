@@ -1,30 +1,13 @@
 import * as mem from './mem'
 import {wasm_memory} from './runtime'
 
-const load_bytes_string = (buffer: ArrayBufferLike, buf_ptr: number, buf_len: number): string => {
-    const bytes = new Uint8Array(buffer, buf_ptr, buf_len)
-    return String.fromCharCode(...bytes)
-}
-
-const store_bytes_string = (
-    buffer: ArrayBufferLike,
-    buf_ptr: number,
-    buf_len: number,
-    str: string,
-): void => {
-    const bytes = new Uint8Array(buffer, buf_ptr, buf_len)
-    for (let i = 0; i < str.length; i++) {
-        bytes[i] = str.charCodeAt(i)
-    }
-}
-
 export const local_storage = {
     ls_get_bytes: (k_ptr: number, k_len: number, buf_ptr: number, buf_len: number): number => {
-        const key = load_bytes_string(wasm_memory.buffer, k_ptr, k_len)
+        const key = mem.load_bytes_string(wasm_memory.buffer, k_ptr, k_len)
         const val = localStorage.getItem(key)
         if (val === null) return 0
 
-        store_bytes_string(wasm_memory.buffer, buf_ptr, buf_len, val)
+        mem.store_bytes_string(wasm_memory.buffer, buf_ptr, buf_len, val)
 
         return val.length
     },
@@ -38,8 +21,8 @@ export const local_storage = {
     },
 
     ls_set_bytes: (k_ptr: number, k_len: number, v_ptr: number, v_len: number): void => {
-        const key = load_bytes_string(wasm_memory.buffer, k_ptr, k_len)
-        const str = load_bytes_string(wasm_memory.buffer, v_ptr, v_len)
+        const key = mem.load_bytes_string(wasm_memory.buffer, k_ptr, k_len)
+        const str = mem.load_bytes_string(wasm_memory.buffer, v_ptr, v_len)
 
         localStorage.setItem(key, str)
     },
