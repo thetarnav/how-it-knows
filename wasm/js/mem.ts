@@ -15,16 +15,23 @@ export const little_endian = /*#__PURE__*/ ((): boolean => {
 })()
 
 export class ByteOffset {
-    constructor(public offset = 0) {}
+    /**
+     * @param offset Initial offset
+     * @param alignment Defaults to the minimum of the amount and the register size. Will be rounded up to the nearest multiple of the alignment.
+     */
+    constructor(
+        public offset = 0,
+        public alignment = ALIGNMENT,
+    ) {}
 
     /**
      * Move the offset by the given amount.
      *
      * @param amount The amount of bytes to move by
-     * @param alignment Defaults to the minimum of the amount and the register size. Will be rounded up to the nearest multiple of the alignment.
      * @returns The previous offset
      */
-    off(amount: number, alignment = Math.min(amount, ALIGNMENT)): number {
+    off(amount: number): number {
+        const alignment = Math.min(amount, this.alignment)
         if (this.offset % alignment != 0) {
             this.offset += alignment - (this.offset % alignment)
         }
@@ -394,6 +401,33 @@ export const store_offset_i64be = (mem: DataView, offset: ByteOffset, value: big
     mem.setBigInt64(offset.off(8), value, false)
 }
 
+export const load_u64_number = (mem: DataView, addr: number, le = little_endian): number => {
+    const lo = mem.getUint32(addr + 4 * (!le as any), le)
+    const hi = mem.getUint32(addr + 4 * (le as any), le)
+    return lo + hi * 2 ** 32
+}
+export const store_u64_number = (
+    mem: DataView,
+    ptr: number,
+    value: number,
+    le = little_endian,
+): void => {
+    mem.setUint32(ptr + 4 * (!le as any), value & 0xff_ff_ff_ff, le)
+    mem.setUint32(ptr + 4 * (le as any), value >> 32, le)
+}
+
+export const load_offset_u64_number = (mem: DataView, offset: ByteOffset): number => {
+    return load_u64_number(mem, offset.off(8))
+}
+export const store_offset_u64_number = (
+    mem: DataView,
+    offset: ByteOffset,
+    value: number,
+    le = little_endian,
+): void => {
+    store_u64_number(mem, offset.off(8), value, le)
+}
+
 export const load_u128 = (mem: DataView, addr: number, le = little_endian): bigint => {
     const lo = mem.getBigUint64(addr + 8 * (!le as any), le)
     const hi = mem.getBigUint64(addr + 8 * (le as any), le)
@@ -664,20 +698,20 @@ export const load_bytes = (buffer: ArrayBufferLike, ptr: number, len: number): U
     return new Uint8Array(buffer, ptr, len)
 }
 
-export const load_bytes_string = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
+export const load_string_bytes = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
     const bytes = new Uint8Array(buffer, ptr, len)
     return String.fromCharCode(...bytes)
 }
-export const load_raw_string = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
+export const load_string_raw = (buffer: ArrayBufferLike, ptr: number, len: number): string => {
     const bytes = new Uint8Array(buffer, ptr, len)
     return new TextDecoder().decode(bytes)
 }
 export const load_string = (mem: DataView, ptr: number): string => {
     const len = load_u32(mem, ptr + REG_SIZE)
     ptr = load_ptr(mem, ptr)
-    return load_raw_string(mem.buffer, ptr, len)
+    return load_string_raw(mem.buffer, ptr, len)
 }
-export const load_raw_cstring = (mem: DataView, ptr: number): string => {
+export const load_cstring_raw = (mem: DataView, ptr: number): string => {
     let str = '',
         c: number
     while ((c = mem.getUint8(ptr))) {
@@ -688,11 +722,27 @@ export const load_raw_cstring = (mem: DataView, ptr: number): string => {
 }
 export const load_cstring = (mem: DataView, ptr: number): string => {
     ptr = load_ptr(mem, ptr)
-    return load_raw_cstring(mem, ptr)
+    return load_cstring_raw(mem, ptr)
 }
 export const load_rune = (mem: DataView, ptr: number): string => {
     const code = load_u32(mem, ptr)
     return String.fromCharCode(code)
+}
+
+/*
+    lbp slice length will be always 64-bit (for consistency)
+*/
+export const load_string_lbp = (mem: DataView, ptr: number): string => {
+    const len = load_u64_number(mem, ptr)
+    return load_string_raw(mem.buffer, ptr, len)
+}
+export const load_offset_string_lbp = (mem: DataView, offset: ByteOffset): string => {
+    if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.assert(offset.alignment === 1, 'Alignment must be 1 for LBP strings')
+    }
+    const len = load_u64_number(mem, offset.off(8))
+    return load_string_raw(mem.buffer, offset.off(len), len)
 }
 
 export const load_offset_string = (mem: DataView, offset: ByteOffset): string => {

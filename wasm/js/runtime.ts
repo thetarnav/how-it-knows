@@ -29,17 +29,57 @@ const load_last_string = (buf_ptr: number, buf_len: number): number => {
     return mem.store_raw_string(wasm_memory.buffer, buf_ptr, buf_len, str)
 }
 
+const to_call_on_load: VoidFunction[] = []
+
 export const storeOwnPost = (content: string): void => {
+    if (!odin_exports) {
+        to_call_on_load.push(() => storeOwnPost(content))
+        return
+    }
     string_to_pass = content
     odin_exports.store_own_post(content.length)
+    // ? call subscribers here?
+}
+
+export type Post = {
+    timestamp: number
+    content: string
+}
+
+export type PostListener = (post: Post) => void
+
+const post_subscribers: PostListener[] = []
+
+export const subscribeToPosts = (cb: PostListener): void => {
+    post_subscribers.push(cb)
+}
+
+const notify_post_subscribers = (post_ptr: number): void => {
+    if (post_subscribers.length === 0) return
+
+    const data = new DataView(wasm_memory.buffer)
+    const offset = new mem.ByteOffset(post_ptr)
+
+    const timestamp = Number(mem.load_offset_i64(data, offset))
+    const content = mem.load_offset_string(data, offset)
+
+    const post: Post = {
+        timestamp,
+        content,
+    }
+
+    for (const cb of post_subscribers) {
+        cb(post)
+    }
 }
 
 const env = {
     load_last_string: load_last_string,
+    notify_post_subscribers: notify_post_subscribers,
 }
 
 export let wasm_memory: WebAssembly.Memory
-export let odin_exports: OdinExports
+export let odin_exports: OdinExports | undefined
 
 export type WasmResult = {
     wasm_memory: WebAssembly.Memory
@@ -65,6 +105,11 @@ export const runWasm = async (wasm_path: string): Promise<WasmResult> => {
 
     odin_exports._start()
     odin_exports._end()
+
+    for (const cb of to_call_on_load) {
+        cb()
+    }
+    to_call_on_load.length = 0
 
     return {
         wasm_memory: wasm_memory,

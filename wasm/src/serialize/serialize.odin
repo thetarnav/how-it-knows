@@ -246,13 +246,14 @@ serialize_number :: proc(
 	// Always
 	when ODIN_ENDIAN != .Big {
 		// Serialize pointer-sized integers as 64-bit
+		// Even though they are 32-bit on 32-bit platforms
 		switch typeid_of(T) {
 		case int:
 			return serialize_opaque_as(s, data, i64, loc)
 		case uint:
-			return serialize_opaque_as(s, data, i64, loc)
+			return serialize_opaque_as(s, data, u64, loc)
 		case uintptr:
-			return serialize_opaque_as(s, data, i64, loc)
+			return serialize_opaque_as(s, data, u64, loc)
 		case:
 			return serialize_opaque(s, data, loc)
 		}

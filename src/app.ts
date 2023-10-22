@@ -116,19 +116,6 @@ function makeApp(): App {
         }
     })
 
-    function submitMessage(content: string) {
-        const post = message.makePostMessage(own_id, content)
-        for (const peer of hive.peers) {
-            message.peerSendMessage(peer, {
-                type: 'posts',
-                data: [post],
-            })
-        }
-        state.posts.push(post)
-        update.scheduleRender(() => renderAppPosts(state))
-        message.storePostMessage(post)
-    }
-
     const el = document.createElement('div')
 
     const id_el = document.createElement('div')
@@ -156,11 +143,24 @@ function makeApp(): App {
     void el.appendChild(form)
     form.addEventListener('submit', e => {
         e.preventDefault()
-        const val = input.value.trim()
+        const content = input.value.trim()
         input.value = ''
 
-        submitMessage(val)
-        wasm.storeOwnPost(val)
+        wasm.storeOwnPost(content)
+
+        const post = message.makePostMessage(own_id, content)
+        for (const peer of hive.peers) {
+            message.peerSendMessage(peer, {
+                type: 'posts',
+                data: [post],
+            })
+        }
+        state.posts.push(post)
+        update.scheduleRender(() => renderAppPosts(state))
+    })
+
+    wasm.subscribeToPosts(post => {
+        console.log('JS GOT POST', post)
     })
 
     const input = document.createElement('input')

@@ -12,6 +12,7 @@ foreign import "env"
 @(default_calling_convention = "contextless")
 foreign env {
 	load_last_string :: proc(buf: []byte) -> uint ---
+	notify_post_subscribers :: proc(post: ^Post) ---
 }
 
 foreign import "odin_env"
@@ -42,7 +43,6 @@ foreign local_storage {
 
 global_allocator := page_allocator()
 temp_buf: []byte
-
 
 main :: proc() {
 	_temp_buf, err := alloc_pages(1)

@@ -65,10 +65,10 @@ store_own_post :: proc(_content_length: uint) {
 	serialize_post(&s, &post)
 
 	ls_key := make_ls_key(post.timestamp)
-
 	ls_set_bytes(ls_key, s.data[:])
 
 	publish()
+	notify_post_subscribers(&post)
 }
 
 read_post :: proc() {
