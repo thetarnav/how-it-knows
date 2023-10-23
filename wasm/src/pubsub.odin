@@ -22,7 +22,7 @@ subscribe :: proc(data_ptr: ^$T, callback: proc(data_ptr: ^T)) -> (err: mem.Allo
 
 	cb_array[cb_offset] = {
 		data_ptr = data_ptr,
-		callback = (Callback_Raw)(callback),
+		callback = Callback_Raw(callback),
 	}
 	cb_offset += 1
 
@@ -31,7 +31,7 @@ subscribe :: proc(data_ptr: ^$T, callback: proc(data_ptr: ^T)) -> (err: mem.Allo
 
 unsubscribe :: proc(callback: proc(data_ptr: ^$T)) -> (ok: bool) {
 	callbacks := cb_array.callback[:cb_offset]
-	idx := slice.linear_search(callbacks, (Callback_Raw)(callback)) or_return
+	idx := slice.linear_search(callbacks, Callback_Raw(callback)) or_return
 
 	cb_offset -= 1
 	cb_array[idx] = cb_array[cb_offset]

@@ -46,6 +46,16 @@ export type Post = {
     content: string
 }
 
+const deserializePost = (data: DataView, offset: mem.ByteOffset): Post => {
+    const timestamp = Number(mem.load_offset_i64(data, offset))
+    const content = mem.load_offset_string(data, offset)
+
+    return {
+        timestamp,
+        content,
+    }
+}
+
 export type PostListener = (post: Post) => void
 
 const post_subscribers: PostListener[] = []
@@ -59,14 +69,7 @@ const notify_post_subscribers = (post_ptr: number): void => {
 
     const data = new DataView(wasm_memory.buffer)
     const offset = new mem.ByteOffset(post_ptr)
-
-    const timestamp = Number(mem.load_offset_i64(data, offset))
-    const content = mem.load_offset_string(data, offset)
-
-    const post: Post = {
-        timestamp,
-        content,
-    }
+    const post = deserializePost(data, offset)
 
     for (const cb of post_subscribers) {
         cb(post)

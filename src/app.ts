@@ -52,9 +52,9 @@ interface App {
     peers_el: HTMLElement
     rendered_peers: rtc.PeerState[]
     rendered_peer_els: HTMLElement[]
-    posts: message.PostMessage[]
+    posts: wasm.Post[]
     posts_el: HTMLElement
-    rendered_posts: message.PostMessage[]
+    rendered_posts: wasm.Post[]
     rendered_post_els: HTMLElement[]
 }
 
@@ -75,11 +75,11 @@ function makeApp(): App {
             const msg = message.parsePeerMessage(data)
             if (!msg) return
 
-            message.handlePeerMessage(peer, msg, state.posts, posts => {
-                state.posts = posts
-                update.scheduleRender(() => renderAppPosts(state))
-                message.storePostMessages(posts)
-            })
+            // message.handlePeerMessage(peer, msg, state.posts, posts => {
+            //     state.posts = posts
+            //     update.scheduleRender(() => renderAppPosts(state))
+            //     message.storePostMessages(posts)
+            // })
         },
         onPeerConnect: peer => {
             state.peers.push(peer)
@@ -89,10 +89,10 @@ function makeApp(): App {
                 Send all stored posts to the peer at connection start
                 this way the peer will know which posts it can request
             */
-            message.peerSendMessage(peer, {
-                type: 'stored_posts',
-                data: state.posts.map(m => m.id),
-            })
+            // message.peerSendMessage(peer, {
+            //     type: 'stored_posts',
+            //     data: state.posts.map(m => m.id),
+            // })
         },
         onPeerDisconnect: peer => {
             // ? why remove here, but push not here?
@@ -148,19 +148,18 @@ function makeApp(): App {
 
         wasm.storeOwnPost(content)
 
-        const post = message.makePostMessage(own_id, content)
-        for (const peer of hive.peers) {
-            message.peerSendMessage(peer, {
-                type: 'posts',
-                data: [post],
-            })
-        }
-        state.posts.push(post)
-        update.scheduleRender(() => renderAppPosts(state))
+        // const post = message.makePostMessage(own_id, content)
+        // for (const peer of hive.peers) {
+        //     message.peerSendMessage(peer, {
+        //         type: 'posts',
+        //         data: [post],
+        //     })
+        // }
     })
 
     wasm.subscribeToPosts(post => {
-        console.log('JS GOT POST', post)
+        state.posts.push(post)
+        update.scheduleRender(() => renderAppPosts(state))
     })
 
     const input = document.createElement('input')
@@ -258,7 +257,7 @@ function renderAppPosts(state: App): void {
         rendered_posts.push(post)
         const span = document.createElement('span')
         span.className = 'text-sm text-gray-400'
-        span.textContent = post.id
+        span.textContent = String(post.timestamp)
         void post_el.appendChild(span)
         const p = document.createElement('p')
         p.className = 'text-sm text-gray-400'
