@@ -68,23 +68,6 @@ export function isPostMessage(v: any): v is PostMessage {
     )
 }
 
-export function getAllPostMessages(): PostMessage[] {
-    const messages: PostMessage[] = []
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (!key || !key.startsWith('post:')) continue
-
-        const value = localStorage.getItem(key)
-        if (!value) continue
-
-        const message = JSON.parse(value)
-        if (!isPostMessage(message)) continue
-
-        messages.push(message)
-    }
-    return messages
-}
-
 export function parsePeerMessage(string: string): PeerMessage | undefined {
     const mess = JSON.parse(string) as any
     if (typeof mess !== 'object' || !mess || typeof mess.type !== 'string') return

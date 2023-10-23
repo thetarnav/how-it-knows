@@ -202,7 +202,7 @@ function makeApp(): App {
         peers_el: peers_list,
         rendered_peers: [],
         rendered_peer_els: [],
-        posts: message.getAllPostMessages(),
+        posts: [],
         posts_el: posts_list,
         rendered_posts: [],
         rendered_post_els: [],

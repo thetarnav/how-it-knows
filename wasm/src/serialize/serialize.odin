@@ -95,7 +95,7 @@ serializer_clear :: proc(s: ^Serializer) {
 }
 
 // The reader doesn't need to be destroyed, since it doesn't own the memory
-serializer_destroy_writer :: proc(s: ^Serializer, loc := #caller_location) {
+serializer_destroy_writer :: proc(s: Serializer, loc := #caller_location) {
 	assert(s.is_writing)
 	delete(s.data, loc)
 }

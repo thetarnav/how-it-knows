@@ -30,13 +30,14 @@ foreign import "local_storage"
 @(default_calling_convention = "contextless")
 foreign local_storage {
     // odinfmt: disable
-	ls_key        :: proc(index: uint, key: []byte) -> uint ---
-	ls_get_bytes  :: proc(key: string, value: []byte) -> uint ---
+	ls_key        :: proc(index: int, key: []byte) -> int ---
+	ls_key_bytes  :: proc(index: int, key: []byte) -> int ---
+	ls_get_bytes  :: proc(key: string, value: []byte) -> int ---
 	ls_set_bytes  :: proc(key: string, value: []byte) ---
-	ls_get_string :: proc(key: string, value: []byte) -> uint ---
+	ls_get_string :: proc(key: string, value: []byte) -> int ---
 	ls_set_string :: proc(key: string, value: []byte) ---
 	ls_remove     :: proc(key: string) ---
-	ls_length     :: proc() -> uint ---
+	ls_length     :: proc() -> int ---
 	ls_clear      :: proc() ---
     // odinfmt: enable
 }
@@ -62,4 +63,13 @@ main :: proc() {
 	}
 
 	subscribe(my_int, cb)
+
+	posts, load_posts_err := load_all_stored_posts()
+	if load_posts_err != nil {
+		fmt.printf("error loading posts: %s\n", err)
+	} else {
+		for post in posts {
+			fmt.printf("loaded post: %d: %s\n", post.timestamp, post.content)
+		}
+	}
 }

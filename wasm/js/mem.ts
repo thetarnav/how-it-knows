@@ -540,14 +540,16 @@ export const load_offset_rune = (mem: DataView, offset: ByteOffset): string => {
 
 export const store_bytes_string = (
     buffer: ArrayBufferLike,
-    ptr: number,
-    len: number,
-    str: string,
-): void => {
-    const bytes = new Uint8Array(buffer, ptr, len)
-    for (let i = 0; i < str.length; i++) {
-        bytes[i] = str.charCodeAt(i)
+    addr: number,
+    length: number,
+    value: string,
+): number => {
+    length = Math.min(length, value.length)
+    const bytes = new Uint8Array(buffer, addr, length)
+    for (let i = 0; i < value.length; i++) {
+        bytes[i] = value.charCodeAt(i)
     }
+    return length
 }
 export const store_raw_string = (
     buffer: ArrayBufferLike,

@@ -7,9 +7,7 @@ export const local_storage = {
         const val = localStorage.getItem(key)
         if (val === null) return 0
 
-        mem.store_bytes_string(wasm_memory.buffer, buf_ptr, buf_len, val)
-
-        return val.length
+        return mem.store_bytes_string(wasm_memory.buffer, buf_ptr, buf_len, val)
     },
 
     ls_get_string: (k_ptr: number, k_len: number, buf_ptr: number, buf_len: number): number => {
@@ -48,6 +46,12 @@ export const local_storage = {
         if (key === null) return 0
 
         return mem.store_raw_string(wasm_memory.buffer, buf_ptr, buf_len, key)
+    },
+    ls_key_bytes: (index: number, buf_ptr: number, buf_len: number): number => {
+        const key = localStorage.key(index)
+        if (key === null) return 0
+
+        return mem.store_bytes_string(wasm_memory.buffer, buf_ptr, buf_len, key)
     },
 
     ls_length: (): number => {
