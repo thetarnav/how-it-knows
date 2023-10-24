@@ -13,9 +13,9 @@ Post :: struct {
 	content:   string,
 }
 
-serialize_post :: proc(s: ^lbp.Serializer, post: ^Post) {
-	lbp.serialize_number(s, &post.timestamp)
-	lbp.serialize_string(s, &post.content)
+serialize_post :: proc(s: ^lbp.Serializer, post: ^Post, loc := #caller_location) {
+	lbp.serialize_number(s, &post.timestamp, loc)
+	lbp.serialize_string(s, &post.content, loc)
 }
 
 timestamp_now :: proc() -> i64 {
@@ -89,61 +89,45 @@ read_post :: proc() {
 	fmt.println(post.content, post.timestamp)
 }
 
+@(require_results)
+load_stored_post :: proc(key: string) -> (post: Post, ok: bool) {
+	value_buf: [1024]byte
+	value_len := ls_get_bytes(key, value_buf[:])
+	(value_len > 0) or_return
 
-/*
-export function getAllPostMessages(): PostMessage[] {
-    const messages: PostMessage[] = []
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (!key || !key.startsWith('post:')) continue
+	s: lbp.Serializer
+	lbp.serializer_init_reader(&s, value_buf[:value_len])
 
-        const value = localStorage.getItem(key)
-        if (!value) continue
+	serialize_post(&s, &post)
 
-        const message = JSON.parse(value)
-        if (!isPostMessage(message)) continue
-
-        messages.push(message)
-    }
-    return messages
+	return post, true
 }
-*/
 
-@(export)
+@(require_results)
 load_all_stored_posts :: proc(
-	capacity: int = 1024,
 	allocator := context.allocator,
-	loc := #caller_location,
 ) -> (
-	posts: []^Post,
+	posts: []Post,
 	err: mem.Allocator_Error,
 ) {
-	posts_dynamic:= make([dynamic]^Post, 0, capacity, allocator, loc) or_return
-    defer delete(posts_dynamic)
-
 	length := ls_length()
-	for i := 0; i < length; i += 1 {
+
+	posts = make([]Post, length, allocator) or_return
+
+    posts_i := 0
+	for ls_i in 0 ..< length {
 		key_buf: [LS_KEY_MAX_LEN]byte
-		key_len := ls_key_bytes(i, key_buf[:])
+		key_len := ls_key_bytes(ls_i, key_buf[:])
 		key := string(key_buf[:key_len])
-		if (!strings.has_prefix(key, LS_KEY_PREFIX)) do continue
+		strings.has_prefix(key, LS_KEY_PREFIX) or_continue
 
-		value_buf: [1024]byte
-		value_len := ls_get_bytes(key, value_buf[:])
-		if value_len == 0 do continue
+		post := load_stored_post(key) or_continue
 
-		s: lbp.Serializer
-		lbp.serializer_init_reader(&s, value_buf[:value_len])
-
-		post := new(Post, allocator, loc)
-		serialize_post(&s, post)
-
-		fmt.printf("post: %d: %s\n", post.timestamp, post.content)
-
-		append(&posts_dynamic, post)
+		posts[posts_i] = post
+        posts_i += 1
 	}
 
-	posts = posts_dynamic[:]
+	posts = posts[:posts_i]
 
 	return
 }

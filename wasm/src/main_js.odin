@@ -65,11 +65,9 @@ main :: proc() {
 	subscribe(my_int, cb)
 
 	posts, load_posts_err := load_all_stored_posts()
-	if load_posts_err != nil {
-		fmt.printf("error loading posts: %s\n", err)
-	} else {
-		for post in posts {
-			fmt.printf("loaded post: %d: %s\n", post.timestamp, post.content)
-		}
+	assert(load_posts_err == nil, "error loading stored posts")
+
+	for post in posts {
+		fmt.printf("loaded post: %d: %s\n", post.timestamp, post.content)
 	}
 }
