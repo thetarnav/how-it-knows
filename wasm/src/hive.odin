@@ -89,6 +89,7 @@ read_post :: proc() {
 	fmt.println(post.content, post.timestamp)
 }
 
+
 @(require_results)
 load_stored_post :: proc(key: string) -> (post: Post, ok: bool) {
 	value_buf: [1024]byte
@@ -114,20 +115,32 @@ load_all_stored_posts :: proc(
 
 	posts = make([]Post, length, allocator) or_return
 
-    posts_i := 0
+	posts_i := 0
 	for ls_i in 0 ..< length {
 		key_buf: [LS_KEY_MAX_LEN]byte
 		key_len := ls_key_bytes(ls_i, key_buf[:])
 		key := string(key_buf[:key_len])
-		strings.has_prefix(key, LS_KEY_PREFIX) or_continue
+		if !strings.has_prefix(key, LS_KEY_PREFIX) do continue
 
-		post := load_stored_post(key) or_continue
+		post, ok := load_stored_post(key)
+		if !ok do continue
 
 		posts[posts_i] = post
-        posts_i += 1
+		posts_i += 1
 	}
 
 	posts = posts[:posts_i]
 
 	return
+}
+
+
+@(export)
+loadAllStoredPosts :: proc() -> ^[]Post {
+	context.allocator = mem.arena_allocator(&{data = temp_buf})
+
+	posts, err := load_all_stored_posts()
+	assert(err == nil, "load_all_stored_posts failed")
+
+	return &posts
 }

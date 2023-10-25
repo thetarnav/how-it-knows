@@ -477,6 +477,30 @@ export const store_offset_f64 = (
     mem.setFloat64(offset.off(8), value, le)
 }
 
+export const load_slice = <T>(
+    mem: DataView,
+    slice_ptr: number,
+    mapFn: (mem: DataView, offset: ByteOffset) => T,
+): T[] => {
+    const raw_data_ptr = load_ptr(mem, slice_ptr)
+    const raw_data_len = load_int(mem, slice_ptr + REG_SIZE)
+
+    const offset = new ByteOffset(raw_data_ptr)
+    const items: T[] = new Array(raw_data_len)
+    for (let i = 0; i < raw_data_len; i++) {
+        items[i] = mapFn(mem, offset)
+    }
+
+    return items
+}
+export const load_offset_slice = <T>(
+    mem: DataView,
+    offset: ByteOffset,
+    mapFn: (mem: DataView, offset: ByteOffset) => T,
+): T[] => {
+    return load_slice(mem, offset.off(REG_SIZE + REG_SIZE), mapFn)
+}
+
 export const load_bytes = (buffer: ArrayBufferLike, ptr: number, len: number): Uint8Array => {
     return new Uint8Array(buffer, ptr, len)
 }
@@ -538,7 +562,7 @@ export const load_offset_rune = (mem: DataView, offset: ByteOffset): string => {
     return load_rune(mem, offset.off(4))
 }
 
-export const store_bytes_string = (
+export const store_string_bytes = (
     buffer: ArrayBufferLike,
     addr: number,
     length: number,
@@ -551,7 +575,7 @@ export const store_bytes_string = (
     }
     return length
 }
-export const store_raw_string = (
+export const store_string_raw = (
     buffer: ArrayBufferLike,
     addr: number,
     length: number,
@@ -570,8 +594,8 @@ export const store_string = (mem: DataView, ptr: number, value: string): void =>
 export const store_offset_string = (mem: DataView, offset: ByteOffset, value: string): void => {
     store_string(mem, offset.off(8), value)
 }
-export const store_raw_cstring = (mem: DataView, ptr: number, value: string): void => {
-    void store_raw_string(mem.buffer, ptr, value.length, value)
+export const store_cstring_raw = (mem: DataView, ptr: number, value: string): void => {
+    void store_string_raw(mem.buffer, ptr, value.length, value)
     mem.setUint8(ptr + value.length, 0)
 }
 export const store_cstring = (mem: DataView, ptr: number, value: string): void => {

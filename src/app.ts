@@ -158,7 +158,7 @@ function makeApp(): App {
     })
 
     wasm.subscribeToPosts(post => {
-        state.posts.push(post)
+        void state.posts.push.apply(state.posts, post)
         update.scheduleRender(() => renderAppPosts(state))
     })
 

@@ -16,6 +16,7 @@ export type OdinExports = {
     default_context_ptr: () => number
 
     store_own_post: (content_length: number) => void
+    loadAllStoredPosts: () => number
 }
 
 let string_to_pass: string | null = null
@@ -26,7 +27,7 @@ const load_last_string = (buf_ptr: number, buf_len: number): number => {
     const str = string_to_pass
     string_to_pass = null
 
-    return mem.store_raw_string(wasm_memory.buffer, buf_ptr, buf_len, str)
+    return mem.store_string_raw(wasm_memory.buffer, buf_ptr, buf_len, str)
 }
 
 const to_call_on_load: VoidFunction[] = []
@@ -56,12 +57,25 @@ const deserializePost = (data: DataView, offset: mem.ByteOffset): Post => {
     }
 }
 
-export type PostListener = (post: Post) => void
+export type PostListener = (post: Post[]) => void
 
 const post_subscribers: PostListener[] = []
 
 export const subscribeToPosts = (cb: PostListener): void => {
     post_subscribers.push(cb)
+}
+
+const initSubscribers = (): void => {
+    if (post_subscribers.length === 0) return
+
+    const post_ptr = odin_exports!.loadAllStoredPosts()
+
+    const data = new DataView(wasm_memory.buffer)
+    const posts = mem.load_slice(data, post_ptr, deserializePost)
+
+    for (const cb of post_subscribers) {
+        cb(posts)
+    }
 }
 
 const notify_post_subscribers = (post_ptr: number): void => {
@@ -72,7 +86,7 @@ const notify_post_subscribers = (post_ptr: number): void => {
     const post = deserializePost(data, offset)
 
     for (const cb of post_subscribers) {
-        cb(post)
+        cb([post])
     }
 }
 
@@ -113,6 +127,8 @@ export const runWasm = async (wasm_path: string): Promise<WasmResult> => {
         cb()
     }
     to_call_on_load.length = 0
+
+    initSubscribers()
 
     return {
         wasm_memory: wasm_memory,
