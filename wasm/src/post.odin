@@ -22,30 +22,6 @@ timestamp_now :: proc() -> i64 {
 	return time.now()._nsec / 1e6
 }
 
-/*
-ls key name
-post_<timestamp>
-*/
-
-LS_KEY_PREFIX :: "post_"
-LS_KEY_PREFIX_LEN :: len(LS_KEY_PREFIX)
-LS_KEY_MAX_LEN :: LS_KEY_PREFIX_LEN + 8
-
-make_ls_key :: proc(timestamp: i64) -> string {
-	buf: [LS_KEY_MAX_LEN]byte
-	copy(buf[:], LS_KEY_PREFIX)
-	timestamp_bytes := transmute([8]byte)(i64le(timestamp))
-	copy(buf[LS_KEY_PREFIX_LEN:], timestamp_bytes[:])
-	return string(buf[:])
-}
-
-get_timestamp_from_ls_key :: proc(key: string) -> (timestamp: i64) {
-	assert(len(key) == LS_KEY_MAX_LEN)
-
-	timestamp_bytes: [8]byte
-	copy(timestamp_bytes[:], key[LS_KEY_PREFIX_LEN:])
-	return i64(transmute(i64le)(timestamp_bytes))
-}
 
 @(export)
 store_own_post :: proc(_content_length: uint) {
@@ -68,7 +44,7 @@ store_own_post :: proc(_content_length: uint) {
 
 	serialize_post(&s, &post)
 
-	ls_key := make_ls_key(post.timestamp)
+	ls_key := get_ls_key(post.timestamp)
 	ls_set_bytes(ls_key, s.data[:])
 
 	publish()
@@ -120,7 +96,7 @@ load_all_stored_posts :: proc(
 		key_buf: [LS_KEY_MAX_LEN]byte
 		key_len := ls_key_bytes(ls_i, key_buf[:])
 		key := string(key_buf[:key_len])
-		if !strings.has_prefix(key, LS_KEY_PREFIX) do continue
+		if !strings.has_prefix(key, LS_POST_KEY_PREFIX) do continue
 
 		post, ok := load_stored_post(key)
 		if !ok do continue

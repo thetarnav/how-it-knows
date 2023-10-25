@@ -2,10 +2,7 @@
 package hive
 
 import "core:fmt"
-import "core:intrinsics"
 import "core:mem"
-import "core:runtime"
-import "core:strings"
 
 foreign import "env"
 
@@ -23,23 +20,6 @@ foreign odin_env {
 	abort :: proc() -> ! ---
 	alert :: proc(msg: string) ---
 	evaluate :: proc(str: string) ---
-}
-
-foreign import "local_storage"
-
-@(default_calling_convention = "contextless")
-foreign local_storage {
-    // odinfmt: disable
-	ls_key        :: proc(index: int, key: []byte) -> int ---
-	ls_key_bytes  :: proc(index: int, key: []byte) -> int ---
-	ls_get_bytes  :: proc(key: string, value: []byte) -> int ---
-	ls_set_bytes  :: proc(key: string, value: []byte) ---
-	ls_get_string :: proc(key: string, value: []byte) -> int ---
-	ls_set_string :: proc(key: string, value: []byte) ---
-	ls_remove     :: proc(key: string) ---
-	ls_length     :: proc() -> int ---
-	ls_clear      :: proc() ---
-    // odinfmt: enable
 }
 
 global_allocator := page_allocator()
@@ -63,4 +43,7 @@ main :: proc() {
 	}
 
 	subscribe(my_int, cb)
+
+	my_id := load_or_generate_id()
+	fmt.printf("my id is %d\n", my_id)
 }

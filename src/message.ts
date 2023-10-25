@@ -39,24 +39,6 @@ export function randomId(): string {
     return id
 }
 
-export function makePostMessage(author: string, content: string): PostMessage {
-    return {
-        id: randomId(),
-        author,
-        content,
-        timestamp: Date.now(),
-    }
-}
-
-export function storePostMessage(msg: PostMessage): void {
-    localStorage.setItem('post:' + msg.id, JSON.stringify(msg))
-}
-export function storePostMessages(msgs: PostMessage[]): void {
-    for (const msg of msgs) {
-        storePostMessage(msg)
-    }
-}
-
 export function isPostMessage(v: any): v is PostMessage {
     return (
         v &&
