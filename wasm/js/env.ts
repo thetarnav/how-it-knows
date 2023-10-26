@@ -70,4 +70,10 @@ export const odin_env = {
     ln: Math.log,
     exp: Math.exp,
     ldexp: (x: number, exp: number): number => x * Math.pow(2, exp),
+
+    rand: Math.random,
+    rand_bytes: (addr: number, len: number): void => {
+        const view = new Uint8Array(wasm_memory.buffer, addr, len)
+        void crypto.getRandomValues(view)
+    },
 }

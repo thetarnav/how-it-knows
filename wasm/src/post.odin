@@ -1,28 +1,15 @@
 package hive
 
-import lbp "./serialize"
 import "core:fmt"
-import "core:intrinsics"
 import "core:mem"
-import "core:slice"
 import "core:strings"
 import "core:time"
 
-Post :: struct {
-	timestamp: i64,
-	content:   string,
-}
-
-serialize_post :: proc(s: ^lbp.Serializer, post: ^Post, loc := #caller_location) {
-	lbp.serialize_number(s, &post.timestamp, loc)
-	lbp.serialize_string(s, &post.content, loc)
-}
 
 @(require_results)
 timestamp_now :: proc() -> i64 {
 	return time.now()._nsec / 1e6
 }
-
 
 @(export)
 store_own_post :: proc(_content_length: uint) {
@@ -33,20 +20,19 @@ store_own_post :: proc(_content_length: uint) {
 	content := string(buf[:content_length])
 
 	post := Post {
+		author    = own_id,
 		content   = content,
 		timestamp = timestamp_now(),
 	}
 
-	s: lbp.Serializer
-	err := lbp.serializer_init_writer(&s);defer lbp.serializer_destroy_writer(s)
-	if err != nil {
-		panic("serializer_init_writer failed")
+	s: Serializer
+	err := serializer_init_writer(&s);defer serializer_destroy_writer(s)
+
+	if err == nil && serialize_post(&s, &post) {
+		ls_key := get_ls_key(post.timestamp)
+		fmt.println("storing post", own_id, s.data[:])
+		ls_set_bytes(ls_key, s.data[:])
 	}
-
-	serialize_post(&s, &post)
-
-	ls_key := get_ls_key(post.timestamp)
-	ls_set_bytes(ls_key, s.data[:])
 
 	publish()
 	notify_post_subscribers(&post)
@@ -56,8 +42,8 @@ read_post :: proc() {
 	buf: [1024]byte
 	len := ls_get_bytes("HEY", buf[:])
 
-	s: lbp.Serializer
-	lbp.serializer_init_reader(&s, buf[:len])
+	s: Serializer
+	serializer_init_reader(&s, buf[:len])
 
 	post: Post
 
@@ -73,8 +59,8 @@ load_stored_post :: proc(key: string) -> (post: Post, ok: bool) {
 	value_len := ls_get_bytes(key, value_buf[:])
 	(value_len > 0) or_return
 
-	s: lbp.Serializer
-	lbp.serializer_init_reader(&s, value_buf[:value_len])
+	s: Serializer
+	serializer_init_reader(&s, value_buf[:value_len])
 
 	serialize_post(&s, &post)
 

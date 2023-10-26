@@ -63,7 +63,7 @@ function makeApp(): App {
     // ? how to do cleanups?
 
     const own_id = localStorage.getItem('id') || message.randomId()
-    localStorage.setItem('id', own_id)
+    // localStorage.setItem('id', own_id)
 
     const hive: rtc.HiveState = {
         id: own_id,

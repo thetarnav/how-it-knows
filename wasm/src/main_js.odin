@@ -44,6 +44,5 @@ main :: proc() {
 
 	subscribe(my_int, cb)
 
-	my_id := load_or_generate_id()
-	fmt.printf("my id is %d\n", my_id)
+	fmt.printf("my id is %v\n", own_id.bytes[:])
 }

@@ -20,7 +20,7 @@ TODO:
 
 */
 
-package serialize
+package hive
 
 import "core:fmt"
 import "core:intrinsics"
@@ -391,20 +391,28 @@ serialize_union_tag :: proc(
 	return true
 }
 
+serialize_id :: proc(s: ^Serializer, id: ^Id, loc := #caller_location) -> bool {
+	return _serialize_bytes(s, id.bytes[:], loc)
+}
 
-when SERIALIZER_ENABLE_GENERIC {
-	serialize :: proc {
-		serialize_number,
-		serialize_basic,
-		serialize_array,
-		serialize_slice,
-		serialize_string,
-		serialize_dynamic_array,
-		serialize_map,
+serialize_post :: proc(s: ^Serializer, post: ^Post, loc := #caller_location) -> bool {
+	serialize_id(s, &post.author, loc) or_return
+	serialize_number(s, &post.timestamp, loc) or_return
+	serialize_string(s, &post.content, loc) or_return
+	return true
+}
 
-	// Add your custom serialization procedures here
-	// serialize_foo,
-	// serialize_bar,
-	// serialize_baz,
-	}
+serialize :: proc {//
+	// builtin types
+	serialize_number,
+	serialize_basic,
+	serialize_array,
+	serialize_slice,
+	serialize_string,
+	serialize_dynamic_array,
+	serialize_map,
+
+	// custom types
+	serialize_id,
+	serialize_post,
 }
