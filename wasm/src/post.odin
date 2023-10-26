@@ -18,6 +18,7 @@ serialize_post :: proc(s: ^lbp.Serializer, post: ^Post, loc := #caller_location)
 	lbp.serialize_string(s, &post.content, loc)
 }
 
+@(require_results)
 timestamp_now :: proc() -> i64 {
 	return time.now()._nsec / 1e6
 }

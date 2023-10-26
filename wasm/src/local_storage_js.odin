@@ -22,15 +22,11 @@ Ls_Item_Type :: enum {
 	Id,
 }
 
-/*
-ls key name
-post_<timestamp>
-*/
-
 LS_POST_KEY_PREFIX :: "post_"
 LS_POST_KEY_PREFIX_LEN :: len(LS_POST_KEY_PREFIX)
 LS_KEY_MAX_LEN :: LS_POST_KEY_PREFIX_LEN + 8
 
+@(require_results)
 get_ls_key :: proc(timestamp: i64) -> string {
 	buf: [LS_KEY_MAX_LEN]byte
 	copy(buf[:], LS_POST_KEY_PREFIX)
@@ -39,6 +35,7 @@ get_ls_key :: proc(timestamp: i64) -> string {
 	return string(buf[:])
 }
 
+@(require_results)
 get_timestamp_from_ls_key :: proc(key: string) -> (timestamp: i64) {
 	assert(len(key) == LS_KEY_MAX_LEN)
 
