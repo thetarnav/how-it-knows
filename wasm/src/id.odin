@@ -1,17 +1,16 @@
 package hive
 
+import "core:crypto"
 import "core:fmt"
-import rnd "core:math/rand"
 
 LS_ID_KEY :: "id"
 
 own_id := load_or_generate_id()
 
 @(require_results)
-generate_id :: proc() -> Id {
-	r: rnd.Rand
-	rnd.init_as_system(&r)
-	return transmute(Id)rnd.int63(&r)
+generate_id :: proc() -> (id: Id) {
+	crypto.rand_bytes(id.bytes[:])
+	return
 }
 
 store_id :: proc(id: Id) {
